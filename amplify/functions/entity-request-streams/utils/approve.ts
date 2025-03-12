@@ -3,9 +3,8 @@ import { Amplify } from "aws-amplify";
 import { generateClient } from "aws-amplify/data";
 import { env } from "$amplify/env/entity-request-streams";
 import { v4 as uuid } from "uuid"
-import { createEntity } from "../../../mutations"
 
-
+// to do - refactor this
 Amplify.configure(
   {
     API: {
@@ -41,17 +40,22 @@ const client = generateClient<Schema>({
 
 export const approve = async (entityRequestData: any) => {
   try {
-    const res = await client.graphql({
-      query: createEntity,
-      variables: {
-        input: {
-          entityId: uuid(),
-          ownerId: entityRequestData.ownerId,
-          type: entityRequestData.type,
-          name: entityRequestData.name
-        }
-      }
-    })
+    // const res = await client.graphql({
+    //   query: createEntity,
+    //   variables: {
+    //     input: {
+    //       entityId: uuid(),
+    //       ownerId: entityRequestData.ownerId,
+    //       type: entityRequestData.type,
+    //       name: entityRequestData.name
+    //     }
+    //   }
+    // })
+
+    await client.models.Entity.create({entityId: uuid(),
+      ownerId: entityRequestData.ownerId,
+      type: entityRequestData.type,
+      name: entityRequestData.name})
   } catch (e) {
     console.error(e)
   }
