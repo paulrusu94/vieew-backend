@@ -4,194 +4,11 @@ import { Amplify } from "aws-amplify";
 import { generateClient } from "aws-amplify/data";
 import { env } from "$amplify/env/seed";
 
-export const createUserQuery = /* GraphQL */ `
-  mutation CreateUser(
-    $condition: ModelUserConditionInput
-    $input: CreateUserInput!
-  ) {
-    createUser(condition: $condition, input: $input) {
-      createdAt
-      email
-      entities {
-        nextToken
-        __typename
-      }
-      entityRequests {
-        nextToken
-        __typename
-      }
-      firstName
-      hide
-      lastName
-      medias {
-        nextToken
-        __typename
-      }
-      owner
-      posts {
-        nextToken
-        __typename
-      }
-      sub
-      updatedAt
-      userId
-      __typename
-    }
-  }
-`;
-export const createPost = /* GraphQL */ `
-  mutation CreatePost(
-    $condition: ModelPostConditionInput
-    $input: CreatePostInput!
-  ) {
-    createPost(condition: $condition, input: $input) {
-      author {
-        createdAt
-        email
-        firstName
-        hide
-        lastName
-        owner
-        sub
-        updatedAt
-        userId
-        __typename
-      }
-      authorId
-      content
-      createdAt
-      creators
-      hide
-      medias {
-        nextToken
-        __typename
-      }
-      ownerEntity {
-        createdAt
-        entityId
-        name
-        ownerId
-        type
-        updatedAt
-        __typename
-      }
-      ownerEntityId
-      postId
-      postType
-      status
-      title
-      type
-      updatedAt
-      __typename
-    }
-  }
-`;
-export const createMedia = /* GraphQL */ `
-  mutation CreateMedia(
-    $condition: ModelMediaConditionInput
-    $input: CreateMediaInput!
-  ) {
-    createMedia(condition: $condition, input: $input) {
-      contentType
-      createdAt
-      fileName
-      mediaId
-      owner {
-        createdAt
-        email
-        firstName
-        hide
-        lastName
-        owner
-        sub
-        updatedAt
-        userId
-        __typename
-      }
-      ownerId
-      path
-      post {
-        authorId
-        content
-        createdAt
-        creators
-        hide
-        ownerEntityId
-        postId
-        postType
-        status
-        title
-        type
-        updatedAt
-        __typename
-      }
-      postId
-      type
-      updatedAt
-      __typename
-    }
-  }
-`;
-export const createEntity = /* GraphQL */ `
-  mutation CreateEntity(
-    $condition: ModelEntityConditionInput
-    $input: CreateEntityInput!
-  ) {
-    createEntity(condition: $condition, input: $input) {
-      createdAt
-      entityId
-      name
-      owner {
-        createdAt
-        email
-        firstName
-        hide
-        lastName
-        owner
-        sub
-        updatedAt
-        userId
-        __typename
-      }
-      ownerId
-      posts {
-        nextToken
-        __typename
-      }
-      type
-      updatedAt
-      __typename
-    }
-  }
-`;
+import { getAmplifyDataClientConfig } from '@aws-amplify/backend/function/runtime';
 
-Amplify.configure(
-  {
-    API: {
-      GraphQL: {
-        endpoint: env.AMPLIFY_DATA_GRAPHQL_ENDPOINT,
-        region: env.AWS_REGION,
-        defaultAuthMode: "iam",
-      },
-    },
-  },
-  {
-    Auth: {
-      credentialsProvider: {
-        getCredentialsAndIdentityId: async () => ({
-          credentials: {
-            accessKeyId: env.AWS_ACCESS_KEY_ID,
-            secretAccessKey: env.AWS_SECRET_ACCESS_KEY,
-            sessionToken: env.AWS_SESSION_TOKEN,
-          },
-        }),
-        clearCredentialsAndIdentityId: () => {
-          /* noop */
-        },
-      },
-    },
-  }
-);
+
+const { resourceConfig, libraryOptions } = await getAmplifyDataClientConfig(env);
+Amplify.configure(resourceConfig, libraryOptions);
 
 interface SeedingParams {
   userCount?: number;
@@ -225,7 +42,7 @@ export async function seedDatabase(params: SeedingParams = {}): Promise<any> {
   const client = generateClient<Schema>({
     authMode: "iam",
   });
-      
+
   const {
     userCount = 100,
     postsPerEntity = 5,
@@ -251,27 +68,24 @@ export async function seedDatabase(params: SeedingParams = {}): Promise<any> {
         const firstName = faker.person.firstName();
         const lastName = faker.person.lastName();
 
-        
-        const data = await client.graphql<Schema['User']['type']>({
-          query: createUserQuery,
-          variables: {
-            input:{
-              userId: `seed-user-${index}-${Date.now()}`,
-              email: faker.internet.email({ firstName, lastName }),
-              firstName,
-              lastName,
-              sub: `seed-sub-${index}-${Date.now()}`,
-              owner: `seed-user-${index}-${Date.now()}`
-            }
+
+        const res = await client.models.User.create(
+          {
+            userId: `seed-user-${index}-${Date.now()}`,
+            email: faker.internet.email({ firstName, lastName }),
+            firstName,
+            lastName,
+            sub: `seed-sub-${index}-${Date.now()}`,
+            owner: `seed-user-${index}-${Date.now()}`
           }
-        }) as any
+        )
 
-        console.log(data.data!.createUser)
+        console.log(res.data)
 
-        return data.data.createUser;
+        return res.data;
       })
     )
-      
+
 
     // Randomly select 10% of users
     const selectedUsers = users
@@ -279,11 +93,11 @@ export async function seedDatabase(params: SeedingParams = {}): Promise<any> {
       .slice(0, usersWithEntitiesCount);
 
 
-      console.log(selectedUsers)
+    console.log(selectedUsers)
 
     // Create entities with realistic names
     const entities = await Promise.all(
-      selectedUsers.flatMap(user => 
+      selectedUsers.flatMap(user =>
         Array(entitiesPerSelectedUser).fill(null).map(async (_, index) => {
           const type = getRandomItem(entityTypes);
           let name: string;
@@ -299,19 +113,15 @@ export async function seedDatabase(params: SeedingParams = {}): Promise<any> {
               name = `${faker.person.firstName()}'s Channel`;
           }
 
-          const data = await client.graphql<Schema['Entity']['type']>({
-            query: createEntity,
-            variables: {
-              input:{
-                entityId: `seed-entity-${user!.userId}-${index}-${Date.now()}`,
-                type,
-                name,
-                ownerId: user!.userId
-              }
+          const res = await client.models.Entity.create(
+            {
+              entityId: `seed-entity-${user!.userId}-${index}-${Date.now()}`,
+              type,
+              name,
+              ownerId: user!.userId
             }
-          }) as any
-
-          return data.data.createEntity;
+          )
+          return res.data;
         })
       )
     );
@@ -322,40 +132,36 @@ export async function seedDatabase(params: SeedingParams = {}): Promise<any> {
         Array(postsPerEntity).fill(null).map(async (_, index) => {
           const postType = getRandomItem(postTypes);
           const createdAt = faker.date.past({ years: 1 }).toISOString();
-          
+
           // Generate realistic title based on post type
-          const title = postType === 'TEXT' 
+          const title = postType === 'TEXT'
             ? faker.lorem.sentence({ min: 3, max: 8 })
             : faker.helpers.arrayElement([
-                'Check this out! 📸',
-                'New content alert 🎉',
-                'Just uploaded 🚀',
-                faker.lorem.sentence({ min: 2, max: 5 })
-              ]);
+              'Check this out! 📸',
+              'New content alert 🎉',
+              'Just uploaded 🚀',
+              faker.lorem.sentence({ min: 2, max: 5 })
+            ]);
 
 
-              const data = await client.graphql<Schema['Post']['type']>({
-                query: createPost,
-                variables: {
-                  input:{
-                    postId: `seed-post-${entity!.entityId}-${index}-${Date.now()}`,
-                    type: "Post",
-                    status: getRandomItem(postStatus),
-                    postType,
-                    content: await generateRealisticPost(),
-                    title,
-                    authorId: entity!.ownerId,
-                    ownerEntityId: entity!.entityId,
-                    creators: [entity!.ownerId],
-                    createdAt,
-                  }
-                }
-              }) as any
-  
-            return data.data.createPost;
-          })
-        )
-      );
+          const res = await client.models.Post.create(
+            {
+              postId: `seed-post-${entity!.entityId}-${index}-${Date.now()}`,
+              type: "Post",
+              status: getRandomItem(postStatus),
+              postType,
+              content: await generateRealisticPost(),
+              title,
+              authorId: entity!.ownerId,
+              ownerEntityId: entity!.entityId,
+              creators: [entity!.ownerId],
+              createdAt,
+            }
+          )
+          return res.data;
+        })
+      )
+    );
 
     // Create media with realistic names and paths
     const medias = await Promise.all(
@@ -363,7 +169,7 @@ export async function seedDatabase(params: SeedingParams = {}): Promise<any> {
         Array(mediasPerPost).fill(null).map(async (_, index) => {
           const contentType = getRandomItem(mediaTypes);
           const extension = contentType.split('_')[1];
-          
+
           // Generate realistic file names
           const fileName = faker.helpers.arrayElement([
             `${faker.word.sample()}_${faker.number.int({ min: 1000, max: 9999 })}.${extension}`,
@@ -372,22 +178,19 @@ export async function seedDatabase(params: SeedingParams = {}): Promise<any> {
             `${faker.word.adjective()}_${faker.word.noun()}.${extension}`
           ]);
 
-          const data = await client.graphql<Schema['Media']['type']>({
-            query: createMedia,
-            variables: {
-              input:{
-                mediaId: `seed-media-${post!.postId}-${index}-${Date.now()}`,
-                fileName,
-                contentType,
-                path: faker.helpers.fake(`media/content/${faker.number.int({max: 10})}`),
-                ownerId: post!.authorId,
-                postId: post!.postId,
-                createdAt: post!.createdAt
-              }
+          const res = await client.models.Media.create(
+            {
+              mediaId: `seed-media-${post!.postId}-${index}-${Date.now()}`,
+              fileName,
+              contentType,
+              path: faker.helpers.fake(`media/content/${faker.number.int({ max: 10 })}`),
+              ownerId: post!.authorId,
+              postId: post!.postId,
+              createdAt: post!.createdAt
             }
-          }) as any
+          )
 
-        return data.data.createMedia;
+          return res.data;
         })
       )
     );

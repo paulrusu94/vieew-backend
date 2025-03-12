@@ -4,34 +4,12 @@ import { generateClient } from "aws-amplify/data";
 import { env } from "$amplify/env/entity-request-streams";
 import { v4 as uuid } from "uuid"
 
-// to do - refactor this
-Amplify.configure(
-  {
-    API: {
-      GraphQL: {
-        endpoint: env.AMPLIFY_DATA_GRAPHQL_ENDPOINT,
-        region: env.AWS_REGION,
-        defaultAuthMode: "iam",
-      },
-    },
-  },
-  {
-    Auth: {
-      credentialsProvider: {
-        getCredentialsAndIdentityId: async () => ({
-          credentials: {
-            accessKeyId: env.AWS_ACCESS_KEY_ID,
-            secretAccessKey: env.AWS_SECRET_ACCESS_KEY,
-            sessionToken: env.AWS_SESSION_TOKEN,
-          },
-        }),
-        clearCredentialsAndIdentityId: () => {
-          /* noop */
-        },
-      },
-    },
-  }
-);
+
+import { getAmplifyDataClientConfig } from '@aws-amplify/backend/function/runtime';
+
+
+const { resourceConfig, libraryOptions } = await getAmplifyDataClientConfig(env);
+Amplify.configure(resourceConfig, libraryOptions);
 
 const client = generateClient<Schema>({
   authMode: "iam",
