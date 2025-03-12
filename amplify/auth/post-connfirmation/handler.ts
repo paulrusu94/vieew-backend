@@ -5,8 +5,6 @@ import { Amplify } from "aws-amplify";
 import { env } from "$amplify/env/post-confirmation";
 import { generateClient } from "aws-amplify/data";
 
-
-
 const { resourceConfig, libraryOptions } = await getAmplifyDataClientConfig(env);
 Amplify.configure(resourceConfig, libraryOptions);
 
@@ -38,8 +36,8 @@ export const handler: PostConfirmationTriggerHandler = async (event) => {
             authMode: "iam",
         });
 
-        const newReferralCode = generateReferralCode();
-        console.log("user's newReferralCode", newReferralCode);
+        const newreferralCode = generateReferralCode();
+        console.log("user's new ReferralCode", newreferralCode);
 
         await client.models.User.create({
             userId: event.request.userAttributes.sub,
@@ -49,7 +47,7 @@ export const handler: PostConfirmationTriggerHandler = async (event) => {
             firstName: event.request.userAttributes.given_name,
             lastName: event.request.userAttributes.family_name,
             referredByUserCode: event.request.clientMetadata?.referredByUserCode,
-            refferalCode: newReferralCode
+            referralCode: newreferralCode
         })
         
         // await client.graphql({
@@ -63,7 +61,7 @@ export const handler: PostConfirmationTriggerHandler = async (event) => {
         //             firstName: event.request.userAttributes.given_name,
         //             lastName: event.request.userAttributes.family_name,
         //             referredByUserCode: event.request.clientMetadata?.referredByUserCode,
-        //             refferalCode: newReferralCode
+        //             referralCode: newreferralCode
         //         },
         //     },
         // });

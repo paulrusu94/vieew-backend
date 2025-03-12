@@ -1,7 +1,7 @@
 import { type ClientSchema, a, defineData } from "@aws-amplify/backend";
 import { postConfirmation } from "../auth/post-connfirmation/resource";
 import { seed } from "../functions/seed/resource";
-import { getRefferalStats } from "../functions/get-refferal-stats/resource";
+import { getReferralStats } from "../functions/get-referral-stats/resource";
 import { entityRequestStreams } from "../functions/entity-request-streams/resource";
 import { schedulerMining } from "../functions/scheduler-mining/resource";
 import { distributeTokens } from "../functions/distribute-tokens/resource";
@@ -38,18 +38,18 @@ const schema = a.schema({
       "image_jpg",
       "video_mp4"
     ]),
-  RefferalStatsResponse: a.customType({
+  ReferralStatsResponse: a.customType({
     allInvitedUsers: a.string().array().required(),
     allMininngUsers: a.string().array().required()
   }),
-  getRefferalStats: a.query()
+  getReferralStats: a.query()
       .arguments({
         startDate: a.datetime(),
         endDate: a.datetime(),
         referralCode: a.string()
       })
-      .returns(a.ref('RefferalStatsResponse'))
-      .handler(a.handler.function(getRefferalStats))
+      .returns(a.ref('ReferralStatsResponse'))
+      .handler(a.handler.function(getReferralStats))
       .authorization(allow => [
         allow.authenticated("userPools"),
         allow.authenticated("identityPool")
@@ -80,7 +80,7 @@ const schema = a.schema({
       balance: a.float().default(0).authorization((allow) => [
         allow.ownerDefinedIn("owner").to(["read"])
       ]),
-      refferalCode: a.string().authorization((allow) => [
+      referralCode: a.string().authorization((allow) => [
         allow.ownerDefinedIn("owner").to(["read"])
       ]),
       referredByUserCode: a.string().authorization((allow) => [
@@ -92,7 +92,7 @@ const schema = a.schema({
     .identifier(["userId"])
     .secondaryIndexes(index => [
       index("referredByUserCode").queryField("listUsersReferredByCode"),
-      index("refferalCode").queryField("getUserByRefferalCode"),
+      index("referralCode").queryField("getUserByreferralCode"),
       index("email").queryField("getUserByEmail"),
       index("sub").queryField("getUserBySub")
     ])
@@ -231,7 +231,7 @@ const schema = a.schema({
       allow.resource(entityRequestStreams).to(['mutate']),
       allow.resource(schedulerMining).to(['mutate', 'query']),
       allow.resource(distributeTokens).to(['mutate', 'query']),
-      allow.resource(getRefferalStats).to(['query']),
+      allow.resource(getReferralStats).to(['query']),
       allow.resource(seed).to(['mutate'])
     ]
   );

@@ -6,7 +6,7 @@ import { seed } from './functions/seed/resource';
 import { schedulerMining } from './functions/scheduler-mining/resource';
 import { distributeTokens } from './functions/distribute-tokens/resource';
 import { entityRequestStreams } from './functions/entity-request-streams/resource';
-import { getRefferalStats } from './functions/get-refferal-stats/resource';
+import { getreferralStats } from './functions/get-referral-stats/resource';
 import { Stack } from "aws-cdk-lib";
 import { Policy, PolicyStatement, Effect, Role, ServicePrincipal } from "aws-cdk-lib/aws-iam";
 import { StartingPosition, EventSourceMapping } from "aws-cdk-lib/aws-lambda";
@@ -22,7 +22,7 @@ const backend = defineBackend({
   entityRequestStreams,
   schedulerMining,
   distributeTokens,
-  getRefferalStats
+  getreferralStats
 });
 
   
