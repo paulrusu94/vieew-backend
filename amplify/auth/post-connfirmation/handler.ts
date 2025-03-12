@@ -3,8 +3,7 @@ import { type Schema } from "../../data/resource";
 import { Amplify } from "aws-amplify";
 import { env } from "$amplify/env/post-confirmation";
 import { generateClient } from "aws-amplify/data";
-import { listUsersRefferedByCode, getAppData } from "../../queries"
-import { createUser, updateAppData } from "../../mutations"
+
 
 // to do ---- have to increment user count in AppData table 
 
@@ -65,43 +64,58 @@ export const handler: PostConfirmationTriggerHandler = async (event) => {
 
         const newReferralCode = generateReferralCode();
         console.log("user's newReferralCode", newReferralCode);
-        
-        await client.graphql({
-            query: createUser,
-            variables: {
-                input: {
-                    userId: event.request.userAttributes.sub,
-                    sub: event.request.userAttributes.sub,
-                    email: event.request.userAttributes.email,
-                    owner: `${event.request.userAttributes.sub}::${event.userName}`,
-                    firstName: event.request.userAttributes.given_name,
-                    lastName: event.request.userAttributes.family_name,
-                    referredByUserCode: event.request.clientMetadata?.referredByUserCode,
-                    refferalCode: newReferralCode
-                },
-            },
-        });
 
-        const resAppData: any = await client.graphql({
-            query: getAppData,
-            variables: {
-                id: APP_DATA_ID 
-            }
+        await client.models.User.create({
+            userId: event.request.userAttributes.sub,
+            sub: event.request.userAttributes.sub,
+            email: event.request.userAttributes.email,
+            owner: `${event.request.userAttributes.sub}::${event.userName}`,
+            firstName: event.request.userAttributes.given_name,
+            lastName: event.request.userAttributes.family_name,
+            referredByUserCode: event.request.clientMetadata?.referredByUserCode,
+            refferalCode: newReferralCode
         })
+        
+        // await client.graphql({
+        //     query: createUser,
+        //     variables: {
+        //         input: {
+        //             userId: event.request.userAttributes.sub,
+        //             sub: event.request.userAttributes.sub,
+        //             email: event.request.userAttributes.email,
+        //             owner: `${event.request.userAttributes.sub}::${event.userName}`,
+        //             firstName: event.request.userAttributes.given_name,
+        //             lastName: event.request.userAttributes.family_name,
+        //             referredByUserCode: event.request.clientMetadata?.referredByUserCode,
+        //             refferalCode: newReferralCode
+        //         },
+        //     },
+        // });
 
-        const currentCount = resAppData.data.getAppData?.registeredUsersCount || 0;
+        const resAppData: any = await client.models.AppData.get({id: APP_DATA_ID})
+
+        // const resAppData: any = await client.graphql({
+        //     query: getAppData,
+        //     variables: {
+        //         id: APP_DATA_ID 
+        //     }
+        // })
+
+        const currentCount = resAppData.data.registeredUsersCount || 0;
         
         console.log("registeredUsersCount", currentCount);    
         
-        await client.graphql({
-            query: updateAppData,
-            variables: {
-                input: {
-                    id: APP_DATA_ID,
-                    registeredUsersCount: currentCount + 1
-                }
-            }
-        });
+        // await client.graphql({
+        //     query: updateAppData,
+        //     variables: {
+        //         input: {
+        //             id: APP_DATA_ID,
+        //             registeredUsersCount: currentCount + 1
+        //         }
+        //     }
+        // });
+
+        await client.models.AppData.update({id: APP_DATA_ID, registeredUsersCount: currentCount + 1})
 
 
     } catch (err) {
