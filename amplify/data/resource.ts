@@ -103,22 +103,22 @@ const schema = a.schema({
       allow.ownerDefinedIn("owner").to(["update", "read"])
     ]),
   MiningSession: a.model({
+    miningSessionId: a.id().required(),
     type: a.string().default("MiningSession"),
     userId: a.string().required(),
+    startDate: a.datetime().required(),
     user: a.belongsTo("User", "userId"),
-    miningSessionId: a.id(),
-    startDate: a.datetime(),
     endDate: a.datetime(),
     status: a.enum(["PROGRESS", "DONE"]),
-    minedUsersCount: a.float(),
-    totalUsersCount: a.integer(),
+    allInvitedUser:  a.string().array(),
+    allInvitedMinedUsers: a.string().array(),
   })
     .identifier(["miningSessionId"])
     .secondaryIndexes((index) => [
       index("userId").queryField("listMiningSessionsByUserId").sortKeys(["startDate"])
     ])
     .authorization((allow) => [
-      allow.authenticated("userPools").to(["create", "read"]),
+      allow.authenticated("userPools").to(["create"]),
       allow.ownerDefinedIn("userId").to(["read"])
     ]),
   Post: a.model({
