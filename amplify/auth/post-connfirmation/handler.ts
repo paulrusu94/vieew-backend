@@ -21,6 +21,7 @@ function generateReferralCode(): string {
 
 
 export const handler: PostConfirmationTriggerHandler = async (event) => {
+    console.log("EVENT:", event)
     try {
         console.log('creating user:', {
             userId: event.request.userAttributes.sub,
