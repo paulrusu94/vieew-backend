@@ -16,8 +16,9 @@ export const handler: Schema["getReferralStats"]["functionHandler"] = async (eve
         const client = generateClient<Schema>({ authMode: "iam" });
 
         console.log("EVENT:", event);
+        console.log("ARGUMENTS:", event.arguments);
         
-        const res = await getReferralStats(client, event);
+        const res = await getReferralStats(client, event.arguments);
         const {allInvitedUsers, allMininngUsers}  = res;
         return {
             allInvitedUsers,
