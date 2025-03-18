@@ -30,7 +30,7 @@ export const handler: PostConfirmationTriggerHandler = async (event) => {
             owner: `${event.request.userAttributes.sub}::${event.userName}`,
             firstName: event.request.userAttributes.given_name,
             lastName: event.request.userAttributes.family_name,
-            referredByUserCode: event.request.clientMetadata?.referredByUserCode
+            referredByUserCode: event.request.userAttributes["custom:referred_by"]
         });
 
         const client = generateClient<Schema>({
@@ -47,7 +47,7 @@ export const handler: PostConfirmationTriggerHandler = async (event) => {
             owner: `${event.request.userAttributes.sub}::${event.userName}`,
             firstName: event.request.userAttributes.given_name,
             lastName: event.request.userAttributes.family_name,
-            referredByUserCode: event.request.clientMetadata?.referredByUserCode,
+            referredByUserCode: event.request.userAttributes["custom:referred_by"],
             referralCode: newreferralCode
         })
         
