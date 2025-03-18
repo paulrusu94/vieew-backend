@@ -107,8 +107,8 @@ const schema = a.schema({
     userId: a.string().required(),
     user: a.belongsTo("User", "userId"),
     miningSessionId: a.id().required(),
-    startDate: a.datetime().required(),
-    endDate: a.datetime().required(),
+    startDate: a.datetime(),
+    endDate: a.datetime(),
     status: a.enum(["PROGRESS", "DONE"]),
     minedUsersCount: a.float(),
     totalUsersCount: a.integer(),
@@ -118,7 +118,7 @@ const schema = a.schema({
       index("userId").queryField("listMiningSessionsByUserId").sortKeys(["startDate"])
     ])
     .authorization((allow) => [
-      allow.authenticated("userPools").to(["create"]),
+      allow.authenticated("userPools").to(["create", "read"]),
       allow.ownerDefinedIn("userId").to(["read"])
     ]),
   Post: a.model({
