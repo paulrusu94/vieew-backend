@@ -14,10 +14,11 @@ export const handler: Schema["getReferralStats"]["functionHandler"] = async (eve
 
     try {
         const client = generateClient<Schema>({ authMode: "iam" });
+
+        console.log("EVENT:", event);
         
-        const res = await getReferralStats(client, event.arguments);
+        const res = await getReferralStats(client, event);
         const {allInvitedUsers, allMininngUsers}  = res;
-        
         return {
             allInvitedUsers,
             allMininngUsers
