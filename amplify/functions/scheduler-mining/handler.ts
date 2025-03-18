@@ -17,7 +17,7 @@ export const handler: DynamoDBStreamHandler = async (event) => {
         console.log(`NEW Image:`, newItem);
 
         try {
-          const ruleName = `mining-session-${Date.now()}-${newItem!.userId}`;
+          const ruleName = `R-DT-${Date.now()}-${newItem!.userId}`;
 
           const startDate = new Date(newItem!.startDate)
           const endDate = new Date(newItem!.startDate)
