@@ -106,7 +106,7 @@ const schema = a.schema({
     type: a.string().default("MiningSession"),
     userId: a.string().required(),
     user: a.belongsTo("User", "userId"),
-    miningSessionId: a.id().required(),
+    miningSessionId: a.id(),
     startDate: a.datetime(),
     endDate: a.datetime(),
     status: a.enum(["PROGRESS", "DONE"]),
