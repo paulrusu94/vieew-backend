@@ -15,7 +15,7 @@ export const auth = defineAuth({
       mutable: true,
       required: false
     },
-    "custom:referred_by_user_code":{
+    "custom:referred_by":{
       dataType: 'String',
       maxLen: 16
     }
