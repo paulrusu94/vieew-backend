@@ -73,7 +73,8 @@ async function processInvitedUsersMining(
                 { 
                     userId: user.userId 
                 }, {
-                    selectionSet: ["miningSessionId", "startDate"]
+                    selectionSet: ["miningSessionId", "startDate"],
+                    sortDirection: "DESC"
                 }
             );
 
