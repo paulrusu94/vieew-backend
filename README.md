@@ -7,7 +7,26 @@ Backend application repository for the Vieew project.
 The application requires the following folder structure:
 
 
+
 ## Installation Guide
+
+-  create next folder structure 
+
+--/view/
+    |---/fronted/
+    |---/backend/
+
+- clone/fetch new backend changes in backend folder
+- in the `tsconfig.json` file from the frontend app, add next configuration:
+
+{
+  "compilerOptions": {
+    "paths": {
+      "@/data-schema": ["../vieew-backend/amplify/data/resource"]
+    }
+  }
+}
+
 
 ### Prerequisites
 - Node.js and npm installed
