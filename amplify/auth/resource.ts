@@ -14,6 +14,10 @@ export const auth = defineAuth({
     preferredUsername: {
       mutable: true,
       required: false
+    },
+    "custom:referred_by":{
+      dataType: 'String',
+      maxLen: 16
     }
   },
   triggers: {

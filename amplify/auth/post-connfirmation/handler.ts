@@ -1,41 +1,15 @@
 import type { PostConfirmationTriggerHandler } from "aws-lambda";
+import { getAmplifyDataClientConfig } from '@aws-amplify/backend/function/runtime';
 import { type Schema } from "../../data/resource";
 import { Amplify } from "aws-amplify";
 import { env } from "$amplify/env/post-confirmation";
 import { generateClient } from "aws-amplify/data";
 
+const { resourceConfig, libraryOptions } = await getAmplifyDataClientConfig(env);
+Amplify.configure(resourceConfig, libraryOptions);
 
-// to do ---- have to increment user count in AppData table 
 
 const APP_DATA_ID="main";
-
-Amplify.configure(
-    {
-        API: {
-            GraphQL: {
-                endpoint: env.AMPLIFY_DATA_GRAPHQL_ENDPOINT,
-                region: env.AWS_REGION,
-                defaultAuthMode: "iam",
-            },
-        },
-    },
-    {
-        Auth: {
-            credentialsProvider: {
-                getCredentialsAndIdentityId: async () => ({
-                    credentials: {
-                        accessKeyId: env.AWS_ACCESS_KEY_ID,
-                        secretAccessKey: env.AWS_SECRET_ACCESS_KEY,
-                        sessionToken: env.AWS_SESSION_TOKEN,
-                    },
-                }),
-                clearCredentialsAndIdentityId: () => {
-                    /* noop */
-                },
-            },
-        },
-    }
-);
 
 function generateReferralCode(): string {
     const randomPart = Math.floor(Math.random() * 10000000).toString(36);
@@ -47,6 +21,7 @@ function generateReferralCode(): string {
 
 
 export const handler: PostConfirmationTriggerHandler = async (event) => {
+    console.log("EVENT:", event)
     try {
         console.log('creating user:', {
             userId: event.request.userAttributes.sub,
@@ -55,15 +30,15 @@ export const handler: PostConfirmationTriggerHandler = async (event) => {
             owner: `${event.request.userAttributes.sub}::${event.userName}`,
             firstName: event.request.userAttributes.given_name,
             lastName: event.request.userAttributes.family_name,
-            referredByUserCode: event.request.clientMetadata?.referredByUserCode
+            referredByUserCode: event.request.userAttributes["custom:referred_by"]
         });
 
         const client = generateClient<Schema>({
             authMode: "iam",
         });
 
-        const newReferralCode = generateReferralCode();
-        console.log("user's newReferralCode", newReferralCode);
+        const newreferralCode = generateReferralCode();
+        console.log("user's new ReferralCode", newreferralCode);
 
         await client.models.User.create({
             userId: event.request.userAttributes.sub,
@@ -72,8 +47,8 @@ export const handler: PostConfirmationTriggerHandler = async (event) => {
             owner: `${event.request.userAttributes.sub}::${event.userName}`,
             firstName: event.request.userAttributes.given_name,
             lastName: event.request.userAttributes.family_name,
-            referredByUserCode: event.request.clientMetadata?.referredByUserCode,
-            refferalCode: newReferralCode
+            referredByUserCode: event.request.userAttributes["custom:referred_by"],
+            referralCode: newreferralCode
         })
         
         // await client.graphql({
@@ -87,12 +62,12 @@ export const handler: PostConfirmationTriggerHandler = async (event) => {
         //             firstName: event.request.userAttributes.given_name,
         //             lastName: event.request.userAttributes.family_name,
         //             referredByUserCode: event.request.clientMetadata?.referredByUserCode,
-        //             refferalCode: newReferralCode
+        //             referralCode: newreferralCode
         //         },
         //     },
         // });
 
-        const resAppData: any = await client.models.AppData.get({id: APP_DATA_ID})
+        const resAppData = await client.models.AppData.get({id: APP_DATA_ID})
 
         // const resAppData: any = await client.graphql({
         //     query: getAppData,
@@ -101,7 +76,7 @@ export const handler: PostConfirmationTriggerHandler = async (event) => {
         //     }
         // })
 
-        const currentCount = resAppData.data.registeredUsersCount || 0;
+        const currentCount = resAppData.data?.registeredUsersCount || 0;
         
         console.log("registeredUsersCount", currentCount);    
         

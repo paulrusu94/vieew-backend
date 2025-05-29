@@ -6,7 +6,7 @@ import { seed } from './functions/seed/resource';
 import { schedulerMining } from './functions/scheduler-mining/resource';
 import { distributeTokens } from './functions/distribute-tokens/resource';
 import { entityRequestStreams } from './functions/entity-request-streams/resource';
-import { getRefferalStats } from './functions/get-refferal-stats/resource';
+import { getReferralStats } from './functions/get-referral-stats/resource';
 import { Stack } from "aws-cdk-lib";
 import { Policy, PolicyStatement, Effect, Role, ServicePrincipal } from "aws-cdk-lib/aws-iam";
 import { StartingPosition, EventSourceMapping } from "aws-cdk-lib/aws-lambda";
@@ -22,7 +22,7 @@ const backend = defineBackend({
   entityRequestStreams,
   schedulerMining,
   distributeTokens,
-  getRefferalStats
+  getReferralStats
 });
 
   
@@ -168,4 +168,5 @@ schedulerMiningFunction.role?.attachInlinePolicy(schedulerMiningPolicy);
 // ENV VARIABLES <3
 backend.schedulerMining.addEnvironment("ROLE_ARN", eventBridgeExecutionRole.roleArn);
 backend.schedulerMining.addEnvironment("TARGET_ARN", distributeTokensFunction.functionArn);
+// backend.schedulerMining.addEnvironment("TABLE_MINING_SESSION", miningSessionsTable.tableName);
 

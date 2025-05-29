@@ -5,7 +5,7 @@ export interface AppData {
 
 export interface User {
     userId: string;
-    refferalCode?: string;
+    referralCode?: string;
     tokens?: number;
 }
 
@@ -34,11 +34,11 @@ export interface DataClientEnv {
     [key: string]: string | undefined;
 }
 
-export interface RefferalUser{
+export interface referralUser{
     userId: string;
 }
 
-export interface ListRefferalUsers {
-    data: RefferalUser[];
+export interface ListreferralUsers {
+    data: referralUser[];
     nextToken?: string | null;
 }

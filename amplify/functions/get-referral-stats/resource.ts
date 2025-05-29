@@ -1,7 +1,7 @@
 
 import {defineFunction} from '@aws-amplify/backend';
   
-  export const getRefferalStats = defineFunction({
-    name: 'get-refferal-stats',
+  export const getReferralStats = defineFunction({
+    name: 'get-referral-stats',
     entry: './handler.ts',
   })

@@ -1,7 +1,7 @@
 import { type ClientSchema, a, defineData } from "@aws-amplify/backend";
 import { postConfirmation } from "../auth/post-connfirmation/resource";
 import { seed } from "../functions/seed/resource";
-import { getRefferalStats } from "../functions/get-refferal-stats/resource";
+import { getReferralStats } from "../functions/get-referral-stats/resource";
 import { entityRequestStreams } from "../functions/entity-request-streams/resource";
 import { schedulerMining } from "../functions/scheduler-mining/resource";
 import { distributeTokens } from "../functions/distribute-tokens/resource";
@@ -38,22 +38,26 @@ const schema = a.schema({
       "image_jpg",
       "video_mp4"
     ]),
-  RefferalStatsResponse: a.customType({
+  ReferralStatsResponse: a.customType({
     allInvitedUsers: a.string().array().required(),
     allMininngUsers: a.string().array().required()
   }),
-  getRefferalStats: a.query()
-      .arguments({
-        startDate: a.datetime(),
-        endDate: a.datetime(),
-        referralCode: a.string()
-      })
-      .returns(a.ref('RefferalStatsResponse'))
-      .handler(a.handler.function(getRefferalStats))
-      .authorization(allow => [
-        allow.authenticated("userPools"),
-        allow.authenticated("identityPool")
-      ]),  
+  SocialAccount: a.customType({
+    socialPlatform: a.string().required(),
+    socialLink: a.string().required()
+  }),
+  getReferralStats: a.query()
+    .arguments({
+      startDate: a.datetime(),
+      endDate: a.datetime(),
+      referralCode: a.string()
+    })
+    .returns(a.ref('ReferralStatsResponse'))
+    .handler(a.handler.function(getReferralStats))
+    .authorization(allow => [
+      allow.authenticated("userPools"),
+      allow.authenticated("identityPool")
+    ]),
   User: a
     .model({
       userId: a.id().required(),
@@ -77,22 +81,25 @@ const schema = a.schema({
       hide: a.string().authorization((allow) => [
         allow.ownerDefinedIn("owner").to(["update", "read"])
       ]),
+      accounts: a.ref("SocialAccount").array().authorization((allow) => [
+        allow.ownerDefinedIn("owner").to(["create", "update", "read"])
+      ]),
       balance: a.float().default(0).authorization((allow) => [
         allow.ownerDefinedIn("owner").to(["read"])
       ]),
-      refferalCode: a.string().authorization((allow) => [
+      referralCode: a.string().authorization((allow) => [
         allow.ownerDefinedIn("owner").to(["read"])
       ]),
       referredByUserCode: a.string().authorization((allow) => [
         allow.ownerDefinedIn("owner").to(["read"])
       ]),
       miningSessions: a.hasMany("MiningSession", "userId"),
-      
+
     })
     .identifier(["userId"])
     .secondaryIndexes(index => [
       index("referredByUserCode").queryField("listUsersReferredByCode"),
-      index("refferalCode").queryField("getUserByRefferalCode"),
+      index("referralCode").queryField("getUserByreferralCode"),
       index("email").queryField("getUserByEmail"),
       index("sub").queryField("getUserBySub")
     ])
@@ -103,19 +110,21 @@ const schema = a.schema({
       allow.ownerDefinedIn("owner").to(["update", "read"])
     ]),
   MiningSession: a.model({
+    miningSessionId: a.id().required(),
     type: a.string().default("MiningSession"),
     userId: a.string().required(),
-    user: a.belongsTo("User", "userId"),
-    miningSessionId: a.id().required(),
+    location: a.string().required(),
     startDate: a.datetime().required(),
-    endDate: a.datetime().required(),
+    user: a.belongsTo("User", "userId"),
+    endDate: a.datetime(),
     status: a.enum(["PROGRESS", "DONE"]),
-    minedUsersCount: a.float(),
-    totalUsersCount: a.integer(),
+    allInvitedUser: a.string().array(),
+    allInvitedMinedUsers: a.string().array(),
   })
     .identifier(["miningSessionId"])
     .secondaryIndexes((index) => [
-      index("userId").queryField("listMiningSessionsByUserId").sortKeys(["startDate"])
+      index("userId").queryField("listMiningSessionsByUserId").sortKeys(["startDate"]),
+      index("location").queryField("listMiningSessionsByLocation").sortKeys(["startDate"])
     ])
     .authorization((allow) => [
       allow.authenticated("userPools").to(["create"]),
@@ -220,10 +229,21 @@ const schema = a.schema({
     ]),
   AppData: a.model({
     id: a.string().required(),
-    registeredUsersCount: a.integer().default(0)
+    registeredUsersCount: a.integer().default("0")
   })
     .identifier(['id'])
-    .authorization(allow => [allow.group("admin")])
+    .authorization(allow => [allow.group("admin")]),
+  Announcements: a.model({
+    id: a.string().required(),
+    content: a.string()
+  })
+    .identifier(['id'])
+    .authorization(allow => [
+      allow.guest().to(["read"]),
+      allow.authenticated("identityPool").to(["read"]),
+      allow.authenticated("userPools").to(["read"]),
+      allow.group("admin").to(["read", "create", "update", "delete"])
+    ])
 })
   .authorization(
     (allow) => [
@@ -231,7 +251,7 @@ const schema = a.schema({
       allow.resource(entityRequestStreams).to(['mutate']),
       allow.resource(schedulerMining).to(['mutate', 'query']),
       allow.resource(distributeTokens).to(['mutate', 'query']),
-      allow.resource(getRefferalStats).to(['query']),
+      allow.resource(getReferralStats).to(['query']),
       allow.resource(seed).to(['mutate'])
     ]
   );

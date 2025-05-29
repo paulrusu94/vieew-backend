@@ -1,9 +1,12 @@
 {
   "name": "vieew-backend",
   "version": "1.0.0",
-  "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "exports": {
+    "./schema": "./amplify/data/resource.ts",
+    "./outputs": "./amplify_outputs.json"
   },
   "keywords": [],
   "author": "",

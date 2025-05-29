@@ -2,6 +2,30 @@ import type { DynamoDBStreamHandler } from "aws-lambda";
 import { unmarshall } from '@aws-sdk/util-dynamodb';
 import { env } from "$amplify/env/scheduler-mining";
 import { EventBridge } from "aws-sdk";
+import { Amplify } from "aws-amplify";
+import { getAmplifyDataClientConfig } from "@aws-amplify/backend/function/runtime";
+import { generateClient } from "aws-amplify/api";
+import { Schema } from "../../data/resource";
+
+const updateMiningSession = async ({
+  miningSessionId,
+  endDate
+}: {
+  miningSessionId: string;
+  endDate: string;
+}) => {
+
+  const { resourceConfig, libraryOptions } = await getAmplifyDataClientConfig(env);
+  Amplify.configure(resourceConfig, libraryOptions);
+
+  const client = generateClient<Schema>({ authMode: "iam" });
+
+  return await client.models.MiningSession.update({
+    miningSessionId: miningSessionId, 
+    status:"PROGRESS", 
+    endDate: endDate
+  })
+}
 
 
 export const handler: DynamoDBStreamHandler = async (event) => {
@@ -17,19 +41,22 @@ export const handler: DynamoDBStreamHandler = async (event) => {
         console.log(`NEW Image:`, newItem);
 
         try {
-          const ruleName = `dynamic-rule-${Date.now()}-${newItem!.userId}`;
-
-          // Set execution time (e.g., 10 seconds from now)
+          const ruleName = `R-DT-${Date.now()}-${newItem!.userId}`;
 
           const startDate = new Date(newItem!.startDate)
           const endDate = new Date(newItem!.startDate)
-          
-          // endDate.setHours(endDate.getHours() + 24)  
-          // endDate.setUTCHours(endDate.getUTCHours() + 24)  
-          endDate.setUTCMinutes(endDate.getUTCMinutes() + 2)  
+            
+          endDate.setUTCMinutes(endDate.getUTCMinutes() + parseInt(env.EVENT_RATE))
 
           console.log("startDate", startDate)
           console.log("endDate", endDate)
+
+          
+          await updateMiningSession({
+            miningSessionId: newItem!.miningSessionId,
+            endDate: endDate.toISOString()
+          });
+          
 
           const cronExpression = `cron(${endDate.getUTCMinutes()} ${endDate.getUTCHours()} ${endDate.getUTCDate()} ${endDate.getUTCMonth() + 1} ? ${endDate.getUTCFullYear()})`;
           

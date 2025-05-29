@@ -22,6 +22,8 @@ export const handler = async (event: { userId: string, miningSessionId: string }
         const { userId, miningSessionId } = event;
         let invitedUsersCount = 0;
         let invitedUsersMiningCount = 0;
+        let invitedUsers: Array<any> = []
+        let invitedUsersMining: Array<any> = []
         console.log('Processing token distribution for:', { userId, miningSessionId });
 
         const client = generateClient<Schema>({
@@ -67,49 +69,64 @@ export const handler = async (event: { userId: string, miningSessionId: string }
             };
         }
 
-        console.log('Processing referral code:', userData.refferalCode);
+        console.log('Processing referral code:', userData.referralCode);
 
-        const refferalStatsResponse = await client.queries.getRefferalStats({
+        const referralStatsResponse = await client.queries.getReferralStats({
             startDate: miningSessionData.startDate,
             endDate: miningSessionData.endDate,
-            referralCode: userData.refferalCode
+            referralCode: userData.referralCode
         })
 
-        console.log(refferalStatsResponse)
+        const referralStatsData = referralStatsResponse.data
 
-        const refferalStatsData = refferalStatsResponse.data
+        const dailyReward = TokenService.getDailyRate(appData.registeredUsersCount);
+        let referralReward: number = 0;
 
 
-            invitedUsersCount = refferalStatsData!.allInvitedUsers.length;
-            invitedUsersMiningCount = refferalStatsData!.allMininngUsers.length;
+        if (referralStatsData?.allInvitedUsers) {
+
+            invitedUsers = referralStatsData.allInvitedUsers;
+            invitedUsersMining = referralStatsData.allMininngUsers;
+            invitedUsersCount = referralStatsData.allInvitedUsers.length;
+            invitedUsersMiningCount = referralStatsData.allMininngUsers.length;
 
             console.log('Referral stats:', {
                 invitedUsersCount,
                 invitedUsersMiningCount
             });
 
+            if (invitedUsersCount > 0) {
+                const referralLevelPercent = TokenService.getReferralLevelPercent(invitedUsersCount);
+                const referralMiningProportion = invitedUsersMiningCount / referralLevelPercent;
+                referralReward = dailyReward * referralMiningProportion;
+            }
+        }
+            
             // Calculate rewards
-            const minedUserProportion = invitedUsersMiningCount / invitedUsersCount;
-            const referralLevelPercent = TokenService.getReferralLevelPercent(invitedUsersCount);
-            const referralMiningPercent = referralLevelPercent * minedUserProportion;
-            const dailyRate = TokenService.getDailyRate(appData.registeredUsersCount);
-            const referralReward = dailyRate * (referralMiningPercent / 100);
-
             console.log('Reward calculation:', {
-                minedUserProportion,
-                referralLevelPercent,
-                referralMiningPercent,
-                dailyRate,
+                invitedUsers,
+                dailyReward,
                 referralReward
             });
 
-            // Here you would typically save the reward
             const updateUserResponse = await client.models.User.update({
                 userId: userId,
-                balance: (userData.balance || 0) + referralReward + dailyRate,
+                balance: (userData.balance || 0) + referralReward + dailyReward,
             });
             console.log('Updated user balance:', updateUserResponse);
-            return updateUserResponse
+
+            const updateMiningSessionResponsne = await client.models.MiningSession.update({
+                miningSessionId: miningSessionData.miningSessionId,
+                allInvitedMinedUsers: invitedUsersMining,
+                allInvitedUser: invitedUsers,
+                status: "DONE"
+            });
+            console.log('Updated user balance:', updateMiningSessionResponsne);
+
+            return {
+                statusCode: 200, 
+                success: true
+            }
 
     } catch (error) {
         console.error('Error in distribute tokens:', error);

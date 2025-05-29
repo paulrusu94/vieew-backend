@@ -1,23 +1,25 @@
 import { type Schema } from "../../data/resource";
 import { Amplify } from "aws-amplify";
 import { Client, generateClient } from "aws-amplify/data";
-import { env } from "$amplify/env/get-refferal-stats";
+import { env } from "$amplify/env/get-referral-stats";
 import { getAmplifyDataClientConfig } from '@aws-amplify/backend/function/runtime';
-import { ListRefferalUsers, RefferalUser } from "../shared/types";
+import { ListreferralUsers, referralUser } from "../shared/types";
 import { DateUtils } from "../shared/utils/date"
 
 const { resourceConfig, libraryOptions } = await getAmplifyDataClientConfig(env);
 Amplify.configure(resourceConfig, libraryOptions);
 
 
-export const handler: Schema["getRefferalStats"]["functionHandler"] = async (event) => {
+export const handler: Schema["getReferralStats"]["functionHandler"] = async (event) => {
 
     try {
         const client = generateClient<Schema>({ authMode: "iam" });
+
+        console.log("EVENT:", event);
+        console.log("ARGUMENTS:", event.arguments);
         
         const res = await getReferralStats(client, event.arguments);
         const {allInvitedUsers, allMininngUsers}  = res;
-        
         return {
             allInvitedUsers,
             allMininngUsers
@@ -59,10 +61,10 @@ async function getReferralStats(
 
 async function processInvitedUsersMining(
     client: Client<Schema>,
-    users: Array<RefferalUser>,
+    users: Array<referralUser>,
     startDate: string,
     endDate: string
-): Promise<Array<RefferalUser>> {
+): Promise<Array<referralUser>> {
     const miningUsers = await Promise.all(
         users.map(async (user) => {
 
@@ -71,12 +73,16 @@ async function processInvitedUsersMining(
                 { 
                     userId: user.userId 
                 }, {
-                    selectionSet: ["miningSessionId", "startDate"]
+                    selectionSet: ["miningSessionId", "startDate"],
+                    sortDirection: "DESC"
                 }
             );
 
+            console.log(sessions)
+
             return sessions.data 
                 && sessions.data.length > 0 
+                && sessions.data[0].startDate
                 && DateUtils.isDateBetween(sessions.data[0].startDate, startDate, endDate) ? user : null;
         })
     );
@@ -87,13 +93,13 @@ async function processInvitedUsersMining(
 async function getAllInvitedUsers(
     client: Client<Schema>,
     referralCode: string
-): Promise<Array<RefferalUser>> {
+): Promise<Array<referralUser>> {
     const pageSize = 100;
-    let allUsers: Array<RefferalUser> = [];
+    let allUsers: Array<referralUser> = [];
     let nextToken: string | null | undefined;
 
     do {
-        const response: ListRefferalUsers = await client.models.User.listUsersReferredByCode(
+        const response: ListreferralUsers = await client.models.User.listUsersReferredByCode(
             { referredByUserCode: referralCode },
             {
                 limit: pageSize,
