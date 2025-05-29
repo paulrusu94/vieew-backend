@@ -77,10 +77,11 @@ export const handler = async (event: { userId: string, miningSessionId: string }
             referralCode: userData.referralCode
         })
 
+        const referralStatsData = referralStatsResponse.data
+
         const dailyReward = TokenService.getDailyRate(appData.registeredUsersCount);
         let referralReward: number = 0;
 
-        const referralStatsData = referralStatsResponse.data
 
         if (referralStatsData?.allInvitedUsers) {
 
@@ -95,30 +96,37 @@ export const handler = async (event: { userId: string, miningSessionId: string }
             });
 
             if (invitedUsersCount > 0) {
-                const minedUserProportion = invitedUsersMiningCount / invitedUsersCount;
                 const referralLevelPercent = TokenService.getReferralLevelPercent(invitedUsersCount);
-                const referralMiningPercent = referralLevelPercent * minedUserProportion;
-                referralReward = dailyReward * (referralMiningPercent / 100);
+                const referralMiningProportion = invitedUsersMiningCount / referralLevelPercent;
+                referralReward = dailyReward * referralMiningProportion;
             }
-
         }
             
             // Calculate rewards
-            
-
             console.log('Reward calculation:', {
                 invitedUsers,
                 dailyReward,
                 referralReward
             });
 
-            // Here you would typically save the reward
             const updateUserResponse = await client.models.User.update({
                 userId: userId,
                 balance: (userData.balance || 0) + referralReward + dailyReward,
             });
             console.log('Updated user balance:', updateUserResponse);
-            return updateUserResponse
+
+            const updateMiningSessionResponsne = await client.models.MiningSession.update({
+                miningSessionId: miningSessionData.miningSessionId,
+                allInvitedMinedUsers: invitedUsersMining,
+                allInvitedUser: invitedUsers,
+                status: "DONE"
+            });
+            console.log('Updated user balance:', updateMiningSessionResponsne);
+
+            return {
+                statusCode: 200, 
+                success: true
+            }
 
     } catch (error) {
         console.error('Error in distribute tokens:', error);

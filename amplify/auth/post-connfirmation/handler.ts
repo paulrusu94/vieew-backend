@@ -67,7 +67,7 @@ export const handler: PostConfirmationTriggerHandler = async (event) => {
         //     },
         // });
 
-        const resAppData: any = await client.models.AppData.get({id: APP_DATA_ID})
+        const resAppData = await client.models.AppData.get({id: APP_DATA_ID})
 
         // const resAppData: any = await client.graphql({
         //     query: getAppData,
@@ -76,7 +76,7 @@ export const handler: PostConfirmationTriggerHandler = async (event) => {
         //     }
         // })
 
-        const currentCount = resAppData.data.registeredUsersCount || 0;
+        const currentCount = resAppData.data?.registeredUsersCount || 0;
         
         console.log("registeredUsersCount", currentCount);    
         
