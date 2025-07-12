@@ -1,11 +1,12 @@
 import type { DynamoDBStreamHandler } from "aws-lambda";
 import { unmarshall } from '@aws-sdk/util-dynamodb';
 import { env } from "$amplify/env/scheduler-mining";
-import { EventBridge } from "aws-sdk";
+import { SchedulerClient, CreateScheduleCommand } from "@aws-sdk/client-scheduler";
 import { Amplify } from "aws-amplify";
 import { getAmplifyDataClientConfig } from "@aws-amplify/backend/function/runtime";
 import { generateClient } from "aws-amplify/api";
 import { Schema } from "../../data/resource";
+import { evaluate } from 'mathjs';
 
 const updateMiningSession = async ({
   miningSessionId,
@@ -21,8 +22,8 @@ const updateMiningSession = async ({
   const client = generateClient<Schema>({ authMode: "iam" });
 
   return await client.models.MiningSession.update({
-    miningSessionId: miningSessionId, 
-    status:"PROGRESS", 
+    miningSessionId: miningSessionId,
+    status: "PROGRESS",
     endDate: endDate
   })
 }
@@ -30,7 +31,7 @@ const updateMiningSession = async ({
 
 export const handler: DynamoDBStreamHandler = async (event) => {
   try {
-    const eventBridge = new EventBridge();
+    const scheduler = new SchedulerClient({});
 
     for (const record of event.Records) {
       console.log(`Processing record: ${record.eventID}`);
@@ -41,53 +42,40 @@ export const handler: DynamoDBStreamHandler = async (event) => {
         console.log(`NEW Image:`, newItem);
 
         try {
-          const ruleName = `R-DT-${Date.now()}-${newItem!.userId}`;
+
+          if (!newItem) {
+            throw Error('System: You do not have a newItem');
+          }
 
           const startDate = new Date(newItem!.startDate)
-          const endDate = new Date(newItem!.startDate)
-            
-          endDate.setUTCMinutes(endDate.getUTCMinutes() + parseInt(env.EVENT_RATE))
+          const eventRate = evaluate(env.EVENT_RATE);
+          const endDate = new Date(startDate.getTime() + eventRate * 60 * 1000);
+          endDate.setUTCSeconds(0, 0);
 
-          console.log("startDate", startDate)
-          console.log("endDate", endDate)
-
-          
           await updateMiningSession({
             miningSessionId: newItem!.miningSessionId,
             endDate: endDate.toISOString()
           });
-          
 
-          const cronExpression = `cron(${endDate.getUTCMinutes()} ${endDate.getUTCHours()} ${endDate.getUTCDate()} ${endDate.getUTCMonth() + 1} ? ${endDate.getUTCFullYear()})`;
-          
-          console.log("ruleName", ruleName);
-          console.log("cronExpression", cronExpression);
+          const isoTimeForSchedule = endDate.toISOString().split('.')[0];
+          const scheduleExpression = `at(${isoTimeForSchedule})`;
 
-          // Create EventBridge Rule
-          const rule = await eventBridge.putRule({
-            Name: ruleName,
-            ScheduleExpression: cronExpression,
-            State: "ENABLED"
-          }).promise();
+          console.log('scheduleExpression', scheduleExpression);
+          console.log("ROLE_ARN:", env.ROLE_ARN);
+          console.log("TAGRET:", env.TARGET_ARN);
 
-          console.log("RULE:", rule)
-
-          // Attach Lambda B as the target
-          const target = await eventBridge.putTargets({
-            Rule: ruleName,
-            Targets: [
-              {
-                Id: "1",
+          await scheduler.send(
+            new CreateScheduleCommand({
+              Name: `Schedule-Distribute-Tokens-${Date.now()}`,
+              FlexibleTimeWindow: { Mode: "OFF" },
+              ScheduleExpression: scheduleExpression,
+              Target: {
                 Arn: env.TARGET_ARN,
                 RoleArn: env.ROLE_ARN,
-                Input: JSON.stringify({
-                  userId: newItem!.userId,
-                  miningSessionId: newItem!.miningSessionId,
-                })
-              }
-            ]
-          }).promise();
-          console.log("TARGET:", target)
+                Input: JSON.stringify({ userId: newItem.userId, miningSessionId: newItem.miningSessionId }),
+              },
+            })
+          );
         } catch (error) {
           console.log("Error creating event rule:", error);
         }

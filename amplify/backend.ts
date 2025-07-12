@@ -121,7 +121,7 @@ const distributeTokensFunction = backend.distributeTokens.resources.lambda
 const eventBridgeExecutionRole = new Role(
   Stack.of(distributeTokensFunction), 
   'EventBridgDistributeTokensExecutionRole', {
-  assumedBy: new ServicePrincipal('events.amazonaws.com'),
+  assumedBy: new ServicePrincipal('scheduler.amazonaws.com'),
   description: 'Role for EventBridge to execute distributeTokens function',
 });
 
@@ -138,7 +138,7 @@ eventBridgeExecutionRole.addToPolicy(
 
 const schedulerMiningFunction = backend.schedulerMining.resources.lambda
 
-// Add rights to scheduleMiner to work with EventBridge and put the roleArn on 
+// Add rights to scheduleMiner to work with EventBridge Scheduler and put the roleArn on 
 const schedulerMiningPolicy = new Policy(
   Stack.of(schedulerMiningFunction),
   "ScheduleMiningPolicy",
@@ -147,10 +147,11 @@ const schedulerMiningPolicy = new Policy(
       new PolicyStatement({
         effect: Effect.ALLOW,
         actions: [
-          "events:PutRule",
-          "events:PutTargets",
-          "events:DeleteRule",
-          "events:RemoveTargets"
+          "scheduler:CreateSchedule",
+          "scheduler:UpdateSchedule",
+          "scheduler:DeleteSchedule",
+          "scheduler:GetSchedule",
+          "scheduler:ListSchedules"
         ],
         resources: ["*"],
       }),
