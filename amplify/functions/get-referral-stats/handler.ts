@@ -3,7 +3,6 @@ import { Amplify } from "aws-amplify";
 import { Client, generateClient } from "aws-amplify/data";
 import { env } from "$amplify/env/get-referral-stats";
 import { getAmplifyDataClientConfig } from '@aws-amplify/backend/function/runtime';
-import { ListreferralUsers, referralUser } from "../shared/types";
 import { DateUtils } from "../shared/utils/date"
 
 const { resourceConfig, libraryOptions } = await getAmplifyDataClientConfig(env);
@@ -61,10 +60,10 @@ async function getReferralStats(
 
 async function processInvitedUsersMining(
     client: Client<Schema>,
-    users: Array<referralUser>,
+    users: Array<any>,
     startDate: string,
     endDate: string
-): Promise<Array<referralUser>> {
+): Promise<Array<any>> {
     const miningUsers = await Promise.all(
         users.map(async (user) => {
 
@@ -93,13 +92,13 @@ async function processInvitedUsersMining(
 async function getAllInvitedUsers(
     client: Client<Schema>,
     referralCode: string
-): Promise<Array<referralUser>> {
+): Promise<Array<any>> {
     const pageSize = 100;
-    let allUsers: Array<referralUser> = [];
+    let allUsers: Array<any> = [];
     let nextToken: string | null | undefined;
 
     do {
-        const response: ListreferralUsers = await client.models.User.listUsersReferredByCode(
+        const response: any = await client.models.User.listUsersReferredByCode(
             { referredByUserCode: referralCode },
             {
                 limit: pageSize,

@@ -1,5 +1,6 @@
-import { defineAuth } from '@aws-amplify/backend';
+import { defineAuth, secret } from '@aws-amplify/backend';
 import { postConfirmation } from './post-connfirmation/resource';
+import { preSignUp } from './pre-signup/resource';
 
 /**
  * Define and configure your auth resource
@@ -8,7 +9,34 @@ import { postConfirmation } from './post-connfirmation/resource';
 export const auth = defineAuth({
   name: "vieewauthservice",
   loginWith: {
-    email: true
+    email: true,
+    externalProviders: {
+      google: {
+        clientId: secret('GOOGLE_CLIENT_ID'),
+        clientSecret: secret('GOOGLE_CLIENT_SECRET'),
+        scopes: ['openid', 'email', 'profile'],
+        attributeMapping: {
+          email: 'email',
+          emailVerified: 'email_verified',
+        }
+      },
+      facebook: {
+        clientId: secret('FACEBOOK_CLIENT_ID'),
+        clientSecret: secret('FACEBOOK_CLIENT_SECRET'),
+        scopes: ['email','public_profile'],
+        attributeMapping: {
+          email: 'email'
+        }
+      },
+      callbackUrls: [
+        'http://localhost:4200/redirect/auth',
+        'https://main.d2gmsn52u9bsr7.amplifyapp.com/redirect/auth'
+      ],
+      logoutUrls: [
+        'http://localhost:4200',
+        'https://main.d2gmsn52u9bsr7.amplifyapp.com'
+      ],
+    }
   },
   userAttributes: {
     preferredUsername: {
@@ -21,6 +49,8 @@ export const auth = defineAuth({
     }
   },
   triggers: {
-    postConfirmation
+    postConfirmation,
+    preSignUp,
   }
 });
+

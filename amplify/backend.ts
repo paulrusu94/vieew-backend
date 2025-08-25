@@ -7,6 +7,7 @@ import { schedulerMining } from './functions/scheduler-mining/resource';
 import { distributeTokens } from './functions/distribute-tokens/resource';
 import { entityRequestStreams } from './functions/entity-request-streams/resource';
 import { getReferralStats } from './functions/get-referral-stats/resource';
+import { preSignUp } from './auth/pre-signup/resource';
 import { Stack } from "aws-cdk-lib";
 import { Policy, PolicyStatement, Effect, Role, ServicePrincipal } from "aws-cdk-lib/aws-iam";
 import { StartingPosition, EventSourceMapping } from "aws-cdk-lib/aws-lambda";
@@ -22,8 +23,36 @@ const backend = defineBackend({
   entityRequestStreams,
   schedulerMining,
   distributeTokens,
-  getReferralStats
+  getReferralStats,
+  preSignUp
 });
+
+
+// === GIVE PreSignUp LAMBDA PERMISSIONS ON THE USER POOL ===
+
+// Build a specific ARN for the user pool (preferred)
+const { cfnUserPool } = backend.auth.resources.cfnResources;
+const userPoolArn = cfnUserPool.attrArn;
+
+const preSignUpPolicy = new Policy(
+  Stack.of(cfnUserPool),
+  'PreSignUpLinkPolicy',
+  {
+    statements: [
+      new PolicyStatement({
+        effect: Effect.ALLOW,
+        actions: [
+          'cognito-idp:ListUsers',
+          'cognito-idp:AdminLinkProviderForUser',
+        ],
+        resources: [userPoolArn], // you can temporarily put "*" if you’re blocked
+      }),
+    ],
+  }
+);
+
+// attach to the trigger Lambda role
+backend.preSignUp.resources.lambda.role?.attachInlinePolicy(preSignUpPolicy);
 
   
 // STREAM EVENTS FROM ENTITY REQUEST TABLE

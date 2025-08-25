@@ -15,6 +15,7 @@
   "dependencies": {
     "@aws-amplify/backend": "^1.16.1",
     "@aws-amplify/backend-cli": "^1.8.0",
+    "@aws-sdk/client-cognito-identity-provider": "^3.872.0",
     "@aws-sdk/client-scheduler": "^3.844.0",
     "@aws-sdk/util-dynamodb": "^3.844.0",
     "@faker-js/faker": "^9.9.0",
