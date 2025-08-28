@@ -1,7 +1,7 @@
 import { defineBackend } from '@aws-amplify/backend';
 import { auth } from './auth/resource';
 import { data } from './data/resource';
-import { storage } from './storage/resource';
+import { storage, assetStorage } from './storage/resource';
 import { seed } from './functions/seed/resource';
 import { schedulerMining } from './functions/scheduler-mining/resource';
 import { distributeTokens } from './functions/distribute-tokens/resource';
@@ -11,6 +11,9 @@ import { preSignUp } from './auth/pre-signup/resource';
 import { Stack } from "aws-cdk-lib";
 import { Policy, PolicyStatement, Effect, Role, ServicePrincipal } from "aws-cdk-lib/aws-iam";
 import { StartingPosition, EventSourceMapping } from "aws-cdk-lib/aws-lambda";
+import * as s3 from 'aws-cdk-lib/aws-s3';
+import * as cloudfront from 'aws-cdk-lib/aws-cloudfront';
+import * as origins from 'aws-cdk-lib/aws-cloudfront-origins';
 
 /**
  * @see https://docs.amplify.aws/react/build-a-backend/ to add storage, functions, and more
@@ -19,6 +22,7 @@ const backend = defineBackend({
   auth,
   data,
   storage,
+  assetStorage,
   seed, 
   entityRequestStreams,
   schedulerMining,
@@ -26,6 +30,41 @@ const backend = defineBackend({
   getReferralStats,
   preSignUp
 });
+
+const assetsBucket = backend.assetStorage.resources.bucket
+
+// // (nice to have) CORS for images/fonts
+// assetsBucket.({
+//   allowedMethods: [s3.HttpMethods.GET, s3.HttpMethods.HEAD],
+//   allowedOrigins: ['*'],         // or lock to your site domains
+//   allowedHeaders: ['*'],
+//   maxAge: 86400,
+// });
+
+// Origin Access Identity so CF can read from S3 while S3 stays private
+const oai = new cloudfront.OriginAccessIdentity(
+  Stack.of(assetsBucket),
+  'AssetsOAI'
+);
+assetsBucket.grantRead(oai);
+
+// CloudFront distribution
+const assetsCdn = new cloudfront.Distribution(
+  Stack.of(assetsBucket),
+  'AssetsCDN',
+  {
+    defaultBehavior: {
+      origin: new origins.S3Origin(assetsBucket, { originAccessIdentity: oai }),
+      viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+      compress: true,
+      cachePolicy: cloudfront.CachePolicy.CACHING_OPTIMIZED,
+      responseHeadersPolicy: cloudfront.ResponseHeadersPolicy.SECURITY_HEADERS,
+    },
+    // no aliases/custom domain
+    defaultRootObject: undefined,
+    priceClass: cloudfront.PriceClass.PRICE_CLASS_100,
+  }
+);
 
 
 // === GIVE PreSignUp LAMBDA PERMISSIONS ON THE USER POOL ===
