@@ -2,6 +2,7 @@ import { defineAuth, secret } from '@aws-amplify/backend';
 import { postConfirmation } from './post-confirmation/resource';
 import { preSignUp } from './pre-signup/resource';
 import { customMessage } from './custom-message/resource';
+import { postAuthentication } from './post-authentication/resource';
 
 /**
  * Define and configure your auth resource
@@ -31,11 +32,15 @@ export const auth = defineAuth({
       },
       callbackUrls: [
         'http://localhost:4200/redirect/auth',
-        'https://main.d2gmsn52u9bsr7.amplifyapp.com/redirect/auth'
+        'https://app.vieew.io/redirect/auth', // production app
+        'https://mine.vieew.io/redirect/auth', // production mine app
+        'v3://auth-callback' // production mobile
       ],
       logoutUrls: [
         'http://localhost:4200',
-        'https://main.d2gmsn52u9bsr7.amplifyapp.com'
+        'https://app.vieew.io', // production app
+        'https://mine.vieew.io', // production mine app
+        'v3://auth-callback'
       ],
     }
   },
@@ -52,7 +57,8 @@ export const auth = defineAuth({
   triggers: {
     postConfirmation,
     preSignUp,
-    customMessage
+    customMessage,
+    postAuthentication
   }
 });
 

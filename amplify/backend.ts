@@ -8,10 +8,10 @@ import { distributeTokens } from './functions/distribute-tokens/resource';
 import { entityRequestStreams } from './functions/entity-request-streams/resource';
 import { getReferralStats } from './functions/get-referral-stats/resource';
 import { preSignUp } from './auth/pre-signup/resource';
+import { postAuthentication } from './auth/post-authentication/resource';
 import { Stack } from "aws-cdk-lib";
 import { Policy, PolicyStatement, Effect, Role, ServicePrincipal } from "aws-cdk-lib/aws-iam";
 import { StartingPosition, EventSourceMapping } from "aws-cdk-lib/aws-lambda";
-import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as cloudfront from 'aws-cdk-lib/aws-cloudfront';
 import * as origins from 'aws-cdk-lib/aws-cloudfront-origins';
 
@@ -28,7 +28,8 @@ const backend = defineBackend({
   schedulerMining,
   distributeTokens,
   getReferralStats,
-  preSignUp
+  preSignUp,
+  postAuthentication
 });
 
 const assetsBucket = backend.assetStorage.resources.bucket
@@ -90,8 +91,25 @@ const preSignUpPolicy = new Policy(
   }
 );
 
+const postAuthenticationPolicy = new Policy(
+  Stack.of(cfnUserPool),
+  'PostAuthenticationLinkPolicy',
+  {
+    statements: [
+      new PolicyStatement({
+        effect: Effect.ALLOW,
+        actions: [
+          'cognito-idp:AdminUpdateUserAttributes',
+        ],
+        resources: [userPoolArn], // you can temporarily put "*" if you’re blocked
+      }),
+    ],
+  }
+);
+
 // attach to the trigger Lambda role
 backend.preSignUp.resources.lambda.role?.attachInlinePolicy(preSignUpPolicy);
+backend.postAuthentication.resources.lambda.role?.attachInlinePolicy(postAuthenticationPolicy)
 
   
 // STREAM EVENTS FROM ENTITY REQUEST TABLE

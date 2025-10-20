@@ -40,17 +40,18 @@ export const handler: PostConfirmationTriggerHandler = async (event) => {
         const newreferralCode = generateReferralCode();
         console.log("user's new ReferralCode", newreferralCode);
 
-        await client.models.User.create({
+        const createResponse = await client.models.User.create({
             userId: event.request.userAttributes.sub,
             sub: event.request.userAttributes.sub,
             email: event.request.userAttributes.email,
             owner: `${event.request.userAttributes.sub}::${event.userName}`,
-            firstName: event.request.userAttributes.given_name,
-            lastName: event.request.userAttributes.family_name,
+            firstName: event.request.userAttributes.given_name || "",
+            lastName: event.request.userAttributes.family_name || "",
             referredByUserCode: event.request.userAttributes["custom:referred_by"],
             referralCode: newreferralCode
         })
-    
+
+        console.log("create response", createResponse)
 
         const resAppData = await client.models.AppData.get({id: APP_DATA_ID})
 
