@@ -40,7 +40,7 @@ export const auth = defineAuth({
         'http://localhost:4200',
         'https://app.vieew.io', // production app
         'https://mine.vieew.io', // production mine app
-        'v3://auth-callback'
+        'v3://auth-callback' // production mobile
       ],
     }
   },

@@ -9,3 +9,5 @@ schema-package/node_modules
 schema-package/package-lock.json
 
 .DS_Store
+
+.env

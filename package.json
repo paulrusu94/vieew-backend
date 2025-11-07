@@ -30,5 +30,9 @@
     "tsx": "^4.19.3",
     "typescript": "^5.8.2",
     "uuid": "^10.0.0"
+  },
+  "devDependencies": {
+    "patch-package": "^8.0.1",
+    "postinstall-postinstall": "^2.1.0"
   }
 }
