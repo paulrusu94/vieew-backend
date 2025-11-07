@@ -14,7 +14,7 @@ import { Policy, PolicyStatement, Effect, Role, ServicePrincipal } from "aws-cdk
 import { StartingPosition, EventSourceMapping } from "aws-cdk-lib/aws-lambda";
 import * as cloudfront from 'aws-cdk-lib/aws-cloudfront';
 import * as origins from 'aws-cdk-lib/aws-cloudfront-origins';
-import { Certificate } from "aws-cdk-lib/aws-certificatemanager";
+
 
 /**
  * @see https://docs.amplify.aws/react/build-a-backend/ to add storage, functions, and more
@@ -257,21 +257,3 @@ schedulerMiningFunction.role?.attachInlinePolicy(schedulerMiningPolicy);
 backend.schedulerMining.addEnvironment("ROLE_ARN", eventBridgeExecutionRole.roleArn);
 backend.schedulerMining.addEnvironment("TARGET_ARN", distributeTokensFunction.functionArn);
 // backend.schedulerMining.addEnvironment("TABLE_MINING_SESSION", miningSessionsTable.tableName);
-
-// Domain configuration - requires environment variables
-if (process.env.CERTIFICATE_ARN && process.env.DOMAIN_NAME) {
-  const certificate = Certificate.fromCertificateArn(
-    Stack.of(backend.auth.resources.userPool),
-    "Certificate",
-    process.env.CERTIFICATE_ARN
-  );
-
-  backend.auth.resources.userPool.addDomain("CustomDomain", {
-    customDomain: {
-      domainName: process.env.DOMAIN_NAME,
-      certificate,
-    },
-  });
-} else {
-  console.log('Skipping domain configuration - CERTIFICATE_ARN and DOMAIN_NAME environment variables required');
-}
