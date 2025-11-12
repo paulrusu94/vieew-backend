@@ -1,5 +1,5 @@
 import { type ClientSchema, a, defineData } from "@aws-amplify/backend";
-import { postConfirmation } from "../auth/post-connfirmation/resource";
+import { postConfirmation } from "../auth/post-confirmation/resource";
 import { seed } from "../functions/seed/resource";
 import { getReferralStats } from "../functions/get-referral-stats/resource";
 import { entityRequestStreams } from "../functions/entity-request-streams/resource";
@@ -261,6 +261,6 @@ export type Schema = ClientSchema<typeof schema>;
 export const data = defineData({
   schema,
   authorizationModes: {
-    defaultAuthorizationMode: "iam",
+    defaultAuthorizationMode: "identityPool",
   },
 });

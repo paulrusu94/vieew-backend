@@ -1,0 +1,1 @@
+export type { Schema } from '../../amplify/data/resource';

@@ -1,0 +1,21 @@
+{
+  "name": "@vieew/schema-type",
+  "version": "0.0.2",
+  "type": "module",
+  "main": "./dist/schema-package/src/index.d.ts",
+  "types": "./dist/schema-package/src/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "prepublishOnly": "npm run build"
+  },
+  "files": [
+    "dist"
+  ],
+  "peerDependencies": {
+    "@aws-amplify/backend": "^1.16.1"
+  },
+  "devDependencies": {
+    "@aws-amplify/backend": "^1.16.1",
+    "typescript": "^5.8.2"
+  }
+}

@@ -1,5 +1,8 @@
-import { defineAuth } from '@aws-amplify/backend';
-import { postConfirmation } from './post-connfirmation/resource';
+import { defineAuth, secret } from '@aws-amplify/backend';
+import { postConfirmation } from './post-confirmation/resource';
+import { preSignUp } from './pre-signup/resource';
+import { customMessage } from './custom-message/resource';
+import { postAuthentication } from './post-authentication/resource';
 
 /**
  * Define and configure your auth resource
@@ -8,7 +11,38 @@ import { postConfirmation } from './post-connfirmation/resource';
 export const auth = defineAuth({
   name: "vieewauthservice",
   loginWith: {
-    email: true
+    email: true,
+    externalProviders: {
+      google: {
+        clientId: secret('GOOGLE_CLIENT_ID'),
+        clientSecret: secret('GOOGLE_CLIENT_SECRET'),
+        scopes: ['openid', 'email', 'profile'],
+        attributeMapping: {
+          email: 'email',
+          emailVerified: 'email_verified',
+        }
+      },
+      facebook: {
+        clientId: secret('FACEBOOK_CLIENT_ID'),
+        clientSecret: secret('FACEBOOK_CLIENT_SECRET'),
+        scopes: ['email','public_profile'],
+        attributeMapping: {
+          email: 'email'
+        }
+      },
+      callbackUrls: [
+        'http://localhost:4200/redirect/auth',
+        'https://app.vieew.io/redirect/auth', // production app
+        'https://mine.vieew.io/redirect/auth', // production mine app
+        'v3://auth-callback' // production mobile
+      ],
+      logoutUrls: [
+        'http://localhost:4200',
+        'https://app.vieew.io', // production app
+        'https://mine.vieew.io', // production mine app
+        'v3://auth-callback' // production mobile
+      ],
+    }
   },
   userAttributes: {
     preferredUsername: {
@@ -21,6 +55,10 @@ export const auth = defineAuth({
     }
   },
   triggers: {
-    postConfirmation
+    postConfirmation,
+    preSignUp,
+    customMessage,
+    postAuthentication
   }
 });
+

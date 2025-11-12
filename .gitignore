@@ -4,4 +4,10 @@ node_modules
 amplify_outputs*
 amplifyconfiguration*
 
+schema-package/dist
+schema-package/node_modules
+schema-package/package-lock.json
+
 .DS_Store
+
+.env

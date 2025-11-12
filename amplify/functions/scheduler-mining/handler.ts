@@ -1,11 +1,14 @@
 import type { DynamoDBStreamHandler } from "aws-lambda";
 import { unmarshall } from '@aws-sdk/util-dynamodb';
 import { env } from "$amplify/env/scheduler-mining";
-import { EventBridge } from "aws-sdk";
+import { SchedulerClient, CreateScheduleCommand } from "@aws-sdk/client-scheduler";
 import { Amplify } from "aws-amplify";
 import { getAmplifyDataClientConfig } from "@aws-amplify/backend/function/runtime";
 import { generateClient } from "aws-amplify/api";
 import { Schema } from "../../data/resource";
+import { evaluate } from 'mathjs';
+
+type MiningSession = Schema['MiningSession']['type']
 
 const updateMiningSession = async ({
   miningSessionId,
@@ -21,86 +24,70 @@ const updateMiningSession = async ({
   const client = generateClient<Schema>({ authMode: "iam" });
 
   return await client.models.MiningSession.update({
-    miningSessionId: miningSessionId, 
-    status:"PROGRESS", 
+    miningSessionId: miningSessionId,
+    status: "PROGRESS",
     endDate: endDate
   })
 }
 
 
 export const handler: DynamoDBStreamHandler = async (event) => {
-  try {
-    const eventBridge = new EventBridge();
 
     for (const record of event.Records) {
       console.log(`Processing record: ${record.eventID}`);
       console.log(`Event Type: ${record.eventName}`);
 
-      if (record.eventName === "INSERT") {
-        const newItem = record.dynamodb?.NewImage ? unmarshall(record.dynamodb.NewImage as any) : null;
-        console.log(`NEW Image:`, newItem);
 
-        try {
-          const ruleName = `R-DT-${Date.now()}-${newItem!.userId}`;
+      try {
+        if (record.eventName === "INSERT") {
 
-          const startDate = new Date(newItem!.startDate)
-          const endDate = new Date(newItem!.startDate)
-            
-          endDate.setUTCMinutes(endDate.getUTCMinutes() + parseInt(env.EVENT_RATE))
+          if (!record.dynamodb) {
+            throw Error('Scheduler Mininng: Error');
+          }
 
-          console.log("startDate", startDate)
-          console.log("endDate", endDate)
+          if (!record.dynamodb?.NewImage) {
+            throw Error('Scheduler Mininng: Error');
+          }
 
-          
+          const scheduler = new SchedulerClient({});
+          const newItem: MiningSession = unmarshall(record.dynamodb.NewImage as any) as MiningSession
+          console.log(`NewImage:`, newItem);
+
+          const eventRate = evaluate(env.EVENT_RATE);
+          const startDate = new Date(newItem.startDate)
+          const endDate = new Date(startDate.getTime() + eventRate * 60 * 1000);
+          endDate.setUTCSeconds(0, 0);
+
           await updateMiningSession({
-            miningSessionId: newItem!.miningSessionId,
+            miningSessionId: newItem.miningSessionId,
             endDate: endDate.toISOString()
           });
-          
 
-          const cronExpression = `cron(${endDate.getUTCMinutes()} ${endDate.getUTCHours()} ${endDate.getUTCDate()} ${endDate.getUTCMonth() + 1} ? ${endDate.getUTCFullYear()})`;
-          
-          console.log("ruleName", ruleName);
-          console.log("cronExpression", cronExpression);
+          const isoTimeForSchedule = endDate.toISOString().split('.')[0];
+          const scheduleExpression = `at(${isoTimeForSchedule})`;
 
-          // Create EventBridge Rule
-          const rule = await eventBridge.putRule({
-            Name: ruleName,
-            ScheduleExpression: cronExpression,
-            State: "ENABLED"
-          }).promise();
+          console.log('Schedule Expression', scheduleExpression);
 
-          console.log("RULE:", rule)
-
-          // Attach Lambda B as the target
-          const target = await eventBridge.putTargets({
-            Rule: ruleName,
-            Targets: [
-              {
-                Id: "1",
+          await scheduler.send(
+            new CreateScheduleCommand({
+              Name: `DT-${newItem.miningSessionId}`,
+              FlexibleTimeWindow: { Mode: "OFF" },
+              ScheduleExpression: scheduleExpression,
+              Target: {
                 Arn: env.TARGET_ARN,
                 RoleArn: env.ROLE_ARN,
-                Input: JSON.stringify({
-                  userId: newItem!.userId,
-                  miningSessionId: newItem!.miningSessionId,
-                })
-              }
-            ]
-          }).promise();
-          console.log("TARGET:", target)
-        } catch (error) {
-          console.log("Error creating event rule:", error);
+                Input: JSON.stringify({ userId: newItem.userId, miningSessionId: newItem.miningSessionId }),
+              },
+            })
+          );
         }
-
+      } catch (error) {
+        console.log("Error creating event rule:", error);
       }
     }
     console.log(`Successfully processed ${event.Records.length} records.`);
     return {
       batchItemFailures: [],
     };
-  } catch (e) {
-    console.log(e)
-    throw e
-  }
 
 };

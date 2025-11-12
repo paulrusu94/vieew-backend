@@ -18,18 +18,6 @@ const client = generateClient<Schema>({
 
 export const approve = async (entityRequestData: any) => {
   try {
-    // const res = await client.graphql({
-    //   query: createEntity,
-    //   variables: {
-    //     input: {
-    //       entityId: uuid(),
-    //       ownerId: entityRequestData.ownerId,
-    //       type: entityRequestData.type,
-    //       name: entityRequestData.name
-    //     }
-    //   }
-    // })
-
     await client.models.Entity.create({entityId: uuid(),
       ownerId: entityRequestData.ownerId,
       type: entityRequestData.type,
