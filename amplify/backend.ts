@@ -256,4 +256,4 @@ schedulerMiningFunction.role?.attachInlinePolicy(schedulerMiningPolicy);
 // ENV VARIABLES <3
 backend.schedulerMining.addEnvironment("ROLE_ARN", eventBridgeExecutionRole.roleArn);
 backend.schedulerMining.addEnvironment("TARGET_ARN", distributeTokensFunction.functionArn);
-// backend.schedulerMining.addEnvironment("TABLE_MINING_SESSION", miningSessionsTable.tableName);
+

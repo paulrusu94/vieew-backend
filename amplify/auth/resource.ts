@@ -9,7 +9,7 @@ import { postAuthentication } from './post-authentication/resource';
  * @see https://docs.amplify.aws/gen2/build-a-backend/auth
  */
 export const auth = defineAuth({
-  name: "vieewauthservice",
+  name: 'vieewauthservice',
   loginWith: {
     email: true,
     externalProviders: {
@@ -32,15 +32,23 @@ export const auth = defineAuth({
       },
       callbackUrls: [
         'http://localhost:4200/redirect/auth',
-        'https://app.vieew.io/redirect/auth', // production app
-        'https://mine.vieew.io/redirect/auth', // production mine app
-        'v3://auth-callback' // production mobile
+        'https://vieew.io/redirect/auth',
+        'https://www.vieew.io/redirect/auth',
+        'https://app.vieew.io/redirect/auth',
+        'https://mine.vieew.io/redirect/auth',
+        'https://stage.app.vieew.io/redirect/auth',
+        'https://stage.mine.vieew.io/redirect/auth',
+        'v3://auth-callback' // mobile rdirect ?
       ],
       logoutUrls: [
         'http://localhost:4200',
-        'https://app.vieew.io', // production app
-        'https://mine.vieew.io', // production mine app
-        'v3://auth-callback' // production mobile
+        'https://vieew.io',
+        'https://www.vieew.io',
+        'https://app.vieew.io',
+        'https://mine.vieew.io',
+        'https://stage.app.vieew.io',
+        'https://stage.mine.vieew.io',
+        'v3://auth-callback' // mobile redirect 
       ],
     }
   },
@@ -49,7 +57,7 @@ export const auth = defineAuth({
       mutable: true,
       required: false
     },
-    "custom:referred_by":{
+    'custom:referred_by':{
       dataType: 'String',
       maxLen: 16
     }
