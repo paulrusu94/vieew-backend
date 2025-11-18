@@ -15,11 +15,3 @@ export const storage = defineStorage({
         ]
     })
 })
-
-export const assetStorage = defineStorage({
-    isDefault:false,
-  name: 'vieewAssets',
-  access: (allow) => ({
-    'public/*': [ allow.guest.to(['read']) ], // files are public via CloudFront; S3 will be locked to CF below
-  }),
-});

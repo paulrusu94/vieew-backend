@@ -53,17 +53,19 @@ export const handler: PostConfirmationTriggerHandler = async (event) => {
 
         console.log("create response", createResponse)
 
-        const resAppData = await client.models.AppData.get({id: APP_DATA_ID})
+        // const resAppData = await client.models.AppData.get({id: APP_DATA_ID})
 
-        if (!resAppData.data) {
-            await client.models.AppData.create({id: APP_DATA_ID, registeredUsersCount: 0})
-        }
+        // if (!resAppData.data) {
+        //     await client.models.AppData.create({id: APP_DATA_ID, registeredUsersCount: 0})
+        // }
 
-        const currentCount = resAppData.data?.registeredUsersCount || 0;
+        // resAppData.data.
+
+        // const currentCount = resAppData.data?.registeredUsersCount || 0;
         
-        console.log("registeredUsersCount", currentCount);    
+        // console.log("registeredUsersCount", currentCount);    
 
-        await client.models.AppData.update({id: APP_DATA_ID, registeredUsersCount: currentCount + 1})
+        // await client.models.AppData.update({id: APP_DATA_ID, registeredUsersCount: currentCount + 1})
 
 
     } catch (err) {
