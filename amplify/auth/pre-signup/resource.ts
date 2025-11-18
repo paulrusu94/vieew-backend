@@ -3,5 +3,6 @@ import { defineFunction } from '@aws-amplify/backend';
 export const preSignUp = defineFunction({
   name: 'pre-signup',
   entry: './handler.ts',
-  timeoutSeconds: 10
+  timeoutSeconds: 10,
+  resourceGroupName: 'auth'
 });

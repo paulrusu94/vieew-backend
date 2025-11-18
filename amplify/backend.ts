@@ -1,72 +1,33 @@
-import { defineBackend, secret } from '@aws-amplify/backend';
+import { defineBackend } from '@aws-amplify/backend';
 import { auth } from './auth/resource';
 import { data } from './data/resource';
-import { storage, assetStorage } from './storage/resource';
-import { seed } from './functions/seed/resource';
-import { schedulerMining } from './functions/scheduler-mining/resource';
-import { distributeTokens } from './functions/distribute-tokens/resource';
-import { entityRequestStreams } from './functions/entity-request-streams/resource';
-import { getReferralStats } from './functions/get-referral-stats/resource';
+import { storage } from './storage/resource';
+import { processMiningSession } from './functions/process-mining-session/resource';
+import { scheduleMiningSession } from './functions/schedule-mining-session/resource';
+import { processEntityRequest } from './functions/process-entity-request/resource';
+import { referralStatsService } from './functions/referral-stats-service/resource';
 import { preSignUp } from './auth/pre-signup/resource';
 import { postAuthentication } from './auth/post-authentication/resource';
+import { incrementUserCount } from './functions/increment-user-count/resource';
 import { Stack } from "aws-cdk-lib";
 import { Policy, PolicyStatement, Effect, Role, ServicePrincipal } from "aws-cdk-lib/aws-iam";
 import { StartingPosition, EventSourceMapping } from "aws-cdk-lib/aws-lambda";
-import * as cloudfront from 'aws-cdk-lib/aws-cloudfront';
-import * as origins from 'aws-cdk-lib/aws-cloudfront-origins';
 
 
-/**
- * @see https://docs.amplify.aws/react/build-a-backend/ to add storage, functions, and more
- */
+
 const backend = defineBackend({
   auth,
   data,
   storage,
-  assetStorage,
-  seed, 
-  entityRequestStreams,
-  schedulerMining,
-  distributeTokens,
-  getReferralStats,
+  processEntityRequest,
+  scheduleMiningSession,
+  processMiningSession,
+  referralStatsService,
   preSignUp,
-  postAuthentication
+  postAuthentication,
+  incrementUserCount
 });
 
-const assetsBucket = backend.assetStorage.resources.bucket
-
-// // (nice to have) CORS for images/fonts
-// assetsBucket.({
-//   allowedMethods: [s3.HttpMethods.GET, s3.HttpMethods.HEAD],
-//   allowedOrigins: ['*'],         // or lock to your site domains
-//   allowedHeaders: ['*'],
-//   maxAge: 86400,
-// });
-
-// Origin Access Identity so CF can read from S3 while S3 stays private
-const oai = new cloudfront.OriginAccessIdentity(
-  Stack.of(assetsBucket),
-  'AssetsOAI'
-);
-assetsBucket.grantRead(oai);
-
-// CloudFront distribution
-const assetsCdn = new cloudfront.Distribution(
-  Stack.of(assetsBucket),
-  'AssetsCDN',
-  {
-    defaultBehavior: {
-      origin: new origins.S3Origin(assetsBucket, { originAccessIdentity: oai }),
-      viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
-      compress: true,
-      cachePolicy: cloudfront.CachePolicy.CACHING_OPTIMIZED,
-      responseHeadersPolicy: cloudfront.ResponseHeadersPolicy.SECURITY_HEADERS,
-    },
-    // no aliases/custom domain
-    defaultRootObject: undefined,
-    priceClass: cloudfront.PriceClass.PRICE_CLASS_100,
-  }
-);
 
 
 // === GIVE PreSignUp LAMBDA PERMISSIONS ON THE USER POOL ===
@@ -76,7 +37,7 @@ const { cfnUserPool } = backend.auth.resources.cfnResources;
 const userPoolArn = cfnUserPool.attrArn;
 
 const preSignUpPolicy = new Policy(
-  Stack.of(cfnUserPool),
+  Stack.of(backend.preSignUp.resources.lambda),
   'PreSignUpLinkPolicy',
   {
     statements: [
@@ -93,7 +54,7 @@ const preSignUpPolicy = new Policy(
 );
 
 const postAuthenticationPolicy = new Policy(
-  Stack.of(cfnUserPool),
+  Stack.of(backend.postAuthentication.resources.lambda),
   'PostAuthenticationLinkPolicy',
   {
     statements: [
@@ -116,8 +77,8 @@ backend.postAuthentication.resources.lambda.role?.attachInlinePolicy(postAuthent
 // STREAM EVENTS FROM ENTITY REQUEST TABLE
 const entityRequestTable = backend.data.resources.tables["EntityRquest"];
 
-const entityRequestStreamsPolicy = new Policy(
-  Stack.of(entityRequestTable),
+const processEntityRequestPolicy = new Policy(
+  Stack.of(backend.processEntityRequest.resources.lambda),
   "EntityRequestStreamingPolicy",
   {
     statements: [
@@ -129,24 +90,24 @@ const entityRequestStreamsPolicy = new Policy(
           "dynamodb:GetShardIterator",
           "dynamodb:ListStreams",
         ],
-        resources: ["*"],
+        resources: [entityRequestTable.tableStreamArn!],
       }),
     ],
   }
 );
-backend.entityRequestStreams.resources.lambda.role?.attachInlinePolicy(entityRequestStreamsPolicy);
+backend.processEntityRequest.resources.lambda.role?.attachInlinePolicy(processEntityRequestPolicy);
 
 const EntityRequestEventStreamMapping = new EventSourceMapping(
-  Stack.of(entityRequestTable),
+  Stack.of(backend.processEntityRequest.resources.lambda),
   "EntityRequestEventStreamMapping",
   {
-    target: backend.entityRequestStreams.resources.lambda,
+    target: backend.processEntityRequest.resources.lambda,
     eventSourceArn: entityRequestTable.tableStreamArn,
     startingPosition: StartingPosition.LATEST,
   }
 );
 
-EntityRequestEventStreamMapping.node.addDependency(entityRequestStreamsPolicy);
+EntityRequestEventStreamMapping.node.addDependency(processEntityRequestPolicy);
 
 /** 
 *     
@@ -165,7 +126,7 @@ const miningSessionsTable = backend.data.resources.tables["MiningSession"];
 
 // new policy with rights on DynamoDB
 const miningSessionStreamsPolicy = new Policy(
-  Stack.of(miningSessionsTable),
+  Stack.of(backend.scheduleMiningSession.resources.lambda),
   "MiningSessionsStreamingPolicy",
   {
     statements: [
@@ -177,39 +138,76 @@ const miningSessionStreamsPolicy = new Policy(
           "dynamodb:GetShardIterator",
           "dynamodb:ListStreams",
         ],
-        resources: ["*"],
+        resources: [miningSessionsTable.tableStreamArn!],
       }),
     ],
   }
 );
 // assigning the policy to the function
-backend.schedulerMining.resources.lambda.role?.attachInlinePolicy(miningSessionStreamsPolicy);
+backend.scheduleMiningSession.resources.lambda.role?.attachInlinePolicy(miningSessionStreamsPolicy);
 
 // create trigger to execute the fuction
-const SchedulerMiningEventStreamMapping = new EventSourceMapping(
-  Stack.of(miningSessionsTable),
-  "SchedulerMiningEventStreamMapping",
+const scheduleMiningSessionEventStreamMapping = new EventSourceMapping(
+  Stack.of(backend.scheduleMiningSession.resources.lambda),
+  "scheduleMiningSessionEventStreamMapping",
   {
-    target: backend.schedulerMining.resources.lambda,
+    target: backend.scheduleMiningSession.resources.lambda,
     eventSourceArn: miningSessionsTable.tableStreamArn,
     startingPosition: StartingPosition.LATEST,
   }
 );
 
-SchedulerMiningEventStreamMapping.node.addDependency(miningSessionStreamsPolicy);
+scheduleMiningSessionEventStreamMapping.node.addDependency(miningSessionStreamsPolicy);
 
 // --------------------------------------------------------------------------------
 
 
 // ADD RIGHTS TO EVENT BRIDGE TO INVOKE DISTRIBUTE-TOKENS FUCTION
-const distributeTokensFunction = backend.distributeTokens.resources.lambda
+const processMiningSessionFunction = backend.processMiningSession.resources.lambda
+
+
+// ADD PERMISSIONS FOR DISTRIBUTE-TOKENS TO ACCESS DYNAMODB TABLES
+const processMiningSessionPolicy = new Policy(
+  Stack.of(processMiningSessionFunction),
+  "DistributeTokensPolicy",
+  {
+    statements: [
+      new PolicyStatement({
+        effect: Effect.ALLOW,
+        actions: [
+          "dynamodb:UpdateItem",
+          "dynamodb:GetItem",
+          "dynamodb:PutItem",
+          "dynamodb:Query",
+          "dynamodb:Scan"
+        ],
+        resources: [
+          backend.data.resources.tables["MiningSession"].tableArn,
+          backend.data.resources.tables["User"].tableArn
+        ],
+      }),
+    ],
+  }
+);
+
+processMiningSessionFunction.role?.attachInlinePolicy(processMiningSessionPolicy);
+
+backend.processMiningSession.addEnvironment(
+  "MINING_TABLE_NAME",
+  backend.data.resources.tables["MiningSession"].tableName
+);
+backend.processMiningSession.addEnvironment(
+  "USERS_TABLE_NAME",
+  backend.data.resources.tables["User"].tableName
+);  
+
 
 // Create EventBridge execution role
 const eventBridgeExecutionRole = new Role(
-  Stack.of(distributeTokensFunction), 
+  Stack.of(processMiningSessionFunction), 
   'EventBridgDistributeTokensExecutionRole', {
   assumedBy: new ServicePrincipal('scheduler.amazonaws.com'),
-  description: 'Role for EventBridge to execute distributeTokens function',
+  description: 'Role for EventBridge to execute processMiningSession function',
 });
 
 // Add permission to invoke the Lambda function
@@ -217,17 +215,17 @@ eventBridgeExecutionRole.addToPolicy(
   new PolicyStatement({
     effect: Effect.ALLOW,
     actions: ['lambda:InvokeFunction'],
-    resources: [distributeTokensFunction.functionArn],
+    resources: [processMiningSessionFunction.functionArn],
   })
 );
 
 // ADDINNG RIGHTS TO SCHEDULE-MINING TO CREATE EVENT-BRIDGE SCHEDULES
 
-const schedulerMiningFunction = backend.schedulerMining.resources.lambda
+const scheduleMiningSessionFunction = backend.scheduleMiningSession.resources.lambda
 
 // Add rights to scheduleMiner to work with EventBridge Scheduler and put the roleArn on 
-const schedulerMiningPolicy = new Policy(
-  Stack.of(schedulerMiningFunction),
+const scheduleMiningSessionPolicy = new Policy(
+  Stack.of(scheduleMiningSessionFunction),
   "ScheduleMiningPolicy",
   {
     statements: [
@@ -251,9 +249,64 @@ const schedulerMiningPolicy = new Policy(
   }
 );
 
-schedulerMiningFunction.role?.attachInlinePolicy(schedulerMiningPolicy);
+scheduleMiningSessionFunction.role?.attachInlinePolicy(scheduleMiningSessionPolicy);
 
 // ENV VARIABLES <3
-backend.schedulerMining.addEnvironment("ROLE_ARN", eventBridgeExecutionRole.roleArn);
-backend.schedulerMining.addEnvironment("TARGET_ARN", distributeTokensFunction.functionArn);
+backend.scheduleMiningSession.addEnvironment("ROLE_ARN", eventBridgeExecutionRole.roleArn);
+backend.scheduleMiningSession.addEnvironment("TARGET_ARN", processMiningSessionFunction.functionArn);
+
+// USER TABLE STREAM -> INCREMENT USER COUNT
+const userTable = backend.data.resources.tables["User"];
+const incrementUserCountLambda = backend.incrementUserCount.resources.lambda;
+
+// 1) Permisiuni pe stream + AppData (totul în stack-ul funcției)
+const incrementUserCountPolicy = new Policy(
+  Stack.of(incrementUserCountLambda),
+  "IncrementUserCountPolicy",
+  {
+    statements: [
+      new PolicyStatement({
+        effect: Effect.ALLOW,
+        actions: [
+          "dynamodb:DescribeStream",
+          "dynamodb:GetRecords",
+          "dynamodb:GetShardIterator",
+          "dynamodb:ListStreams",
+        ],
+        resources: [userTable.tableStreamArn!],
+      }),
+      new PolicyStatement({
+        effect: Effect.ALLOW,
+        actions: [
+          "dynamodb:UpdateItem",
+          "dynamodb:PutItem",
+          "dynamodb:GetItem",
+        ],
+        resources: [
+          backend.data.resources.tables["AppData"].tableArn,
+        ],
+      }),
+    ],
+  }
+);
+
+incrementUserCountLambda.role?.attachInlinePolicy(incrementUserCountPolicy);
+
+// 2) EventSourceMapping de la stream-ul User la funcție
+const userTableStreamMapping = new EventSourceMapping(
+  Stack.of(incrementUserCountLambda),
+  "UserTableIncrementUserCountMapping",
+  {
+    target: incrementUserCountLambda,
+    eventSourceArn: userTable.tableStreamArn,
+    startingPosition: StartingPosition.LATEST,
+  }
+);
+
+userTableStreamMapping.node.addDependency(incrementUserCountPolicy);
+
+backend.incrementUserCount.addEnvironment(
+  "APPDATA_TABLE_NAME",
+  backend.data.resources.tables["AppData"].tableName
+);
 

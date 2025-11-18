@@ -1,8 +1,9 @@
 import { defineFunction } from '@aws-amplify/backend';
 
-export const schedulerMining = defineFunction({
-  name: 'scheduler-mining',
+export const scheduleMiningSession = defineFunction({
+  name: 'schedule-mining-session',
   entry: './handler.ts',
+  resourceGroupName: "data",
   environment: {
     EVENT_RATE: "5"
   },

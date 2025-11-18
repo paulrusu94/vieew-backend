@@ -67,6 +67,7 @@ export const auth = defineAuth({
     preSignUp,
     customMessage,
     postAuthentication
-  }
+  },
+  
 });
 
