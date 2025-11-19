@@ -214,7 +214,7 @@ const schema = a.schema({
     })
     .identifier(["entityReqId"])
     .secondaryIndexes((index) => [
-      index("ownerId").queryField("getEntityRequestsByOwnerId"),
+      index("ownerId").queryField("listEntityRequestsByOwnerId"),
     ])
     .authorization((allow) => [
       allow.authenticated("userPools").to(["create"]), // logged in user
