@@ -28,7 +28,7 @@ const backend = defineBackend({
   incrementUserCount
 });
 
-
+    
 
 // === GIVE PreSignUp LAMBDA PERMISSIONS ON THE USER POOL ===
 
@@ -75,7 +75,11 @@ backend.postAuthentication.resources.lambda.role?.attachInlinePolicy(postAuthent
 
   
 // STREAM EVENTS FROM ENTITY REQUEST TABLE
-const entityRequestTable = backend.data.resources.tables["EntityRquest"];
+const entityRequestTable = backend.data.resources.tables["EntityRequest"];
+
+if (!entityRequestTable?.tableStreamArn) {
+  throw new Error("EntityRequest table stream ARN is not available");
+}
 
 const processEntityRequestPolicy = new Policy(
   Stack.of(backend.processEntityRequest.resources.lambda),
@@ -90,7 +94,7 @@ const processEntityRequestPolicy = new Policy(
           "dynamodb:GetShardIterator",
           "dynamodb:ListStreams",
         ],
-        resources: [entityRequestTable.tableStreamArn!],
+        resources: [entityRequestTable.tableStreamArn],
       }),
     ],
   }

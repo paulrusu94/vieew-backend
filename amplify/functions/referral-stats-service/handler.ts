@@ -6,70 +6,91 @@ import { env } from "$amplify/env/referral-stats-service";
 import type { Schema } from "../../data/resource";
 import { DateUtils } from "../shared/utils/date";
 
-// ---------------------------------------------------------
-// Types
-// ---------------------------------------------------------
+// -----------------------------------------------------------------------------
+// Types & Constants
+// -----------------------------------------------------------------------------
+
+const LOG_PREFIX = "referral-stats-service";
 
 type ReferralStatsHandler = Schema["getReferralStats"]["functionHandler"];
 type ReferralStatsArgs = ReferralStatsHandler["arguments"];
 type ReferralStatsResponse = Schema["ReferralStatsResponse"]["type"];
 
 type UserMinimal = { userId: string };
-type MiningSessionMinimal = { miningSessionId: string; startDate: string | null | undefined };
+type MiningSessionMinimal = {
+  miningSessionId: string;
+  startDate: string | null | undefined;
+};
 
-// ---------------------------------------------------------
-// Amplify Data client – singleton per Lambda environment
-// ---------------------------------------------------------
+// -----------------------------------------------------------------------------
+// Amplify Data Client (Lazy Singleton)
+// -----------------------------------------------------------------------------
 
-const { resourceConfig, libraryOptions } = await getAmplifyDataClientConfig(env);
-Amplify.configure(resourceConfig, libraryOptions);
+let amplifyConfigured = false;
+let dataClient: Client<Schema> | null = null;
 
-const dataClient: Client<Schema> = generateClient<Schema>({ authMode: "iam" });
+/**
+ * Returns a singleton Amplify Data client.
+ * Amplify is configured once per Lambda container lifecycle.
+ */
+async function getDataClient(): Promise<Client<Schema>> {
+  if (!amplifyConfigured) {
+    const { resourceConfig, libraryOptions } = await getAmplifyDataClientConfig(env);
+    Amplify.configure(resourceConfig, libraryOptions);
+    amplifyConfigured = true;
+  }
 
-// ---------------------------------------------------------
-// Public handler
-// ---------------------------------------------------------
+  if (!dataClient) {
+    dataClient = generateClient<Schema>({ authMode: "iam" });
+  }
+
+  return dataClient;
+}
+
+// -----------------------------------------------------------------------------
+// Handler (GraphQL Resolver)
+// -----------------------------------------------------------------------------
 
 export const handler: ReferralStatsHandler = async (event) => {
   const logContext = {
-    function: "referral-stats-service",
-    requestId: (event as any)?.request?.requestId ?? "n/a"
+    function: LOG_PREFIX,
+    requestId: (event as any)?.request?.requestId ?? "n/a",
   };
 
   try {
-    console.log("[referral-stats-service] EVENT", {
+    console.log(`[${LOG_PREFIX}] EVENT`, {
       ...logContext,
-      arguments: event.arguments
+      arguments: event.arguments,
     });
 
-    const result = await getReferralStatsService(dataClient, event.arguments);
+    const client = await getDataClient();
+    const result = await getReferralStatsService(client, event.arguments);
 
-    console.log("[referral-stats-service] RESULT", {
+    console.log(`[${LOG_PREFIX}] RESULT`, {
       ...logContext,
       invitedCount: result.allInvitedUsers.length,
-      miningCount: result.allMininngUsers.length
+      miningCount: result.allMiningUsers.length,
     });
 
     return result;
   } catch (error) {
-    console.error("[referral-stats-service] ERROR", {
+    console.error(`[${LOG_PREFIX}] ERROR`, {
       ...logContext,
-      error: error instanceof Error ? error.message : String(error)
+      error: error instanceof Error ? error.message : String(error),
     });
 
-    // IMPORTANT: întoarcem mereu un obiect valid conform schema
     const fallback: ReferralStatsResponse = {
       allInvitedUsers: [],
-      allMininngUsers: []
+      allMiningUsers: [],
     };
 
     return fallback;
   }
 };
 
-// ---------------------------------------------------------
-// Core service
-// ---------------------------------------------------------
+// -----------------------------------------------------------------------------
+// Core Service Logic
+// -----------------------------------------------------------------------------
 
 async function getReferralStatsService(
   client: Client<Schema>,
@@ -77,27 +98,23 @@ async function getReferralStatsService(
 ): Promise<ReferralStatsResponse> {
   const { referralCode, startDate, endDate } = input;
 
-  // Guard clauses – validare input minim
   if (!referralCode) {
-    console.warn("[getReferralStatsService] Missing referralCode");
+    console.warn(`[${LOG_PREFIX}] Missing referralCode`);
     return {
       allInvitedUsers: [],
-      allMininngUsers: []
+      allMiningUsers: [],
     };
   }
 
-  // 1️⃣ Toți userii invitați
   const invitedUsers = await fetchAllInvitedUsers(client, referralCode);
 
   if (invitedUsers.length === 0) {
     return {
       allInvitedUsers: [],
-      allMininngUsers: []
+      allMiningUsers: [],
     };
   }
 
-  // 2️⃣ If startDate and endDate are provided, filter for active users in that period
-  // Otherwise, return all invited users
   if (startDate && endDate) {
     const miningUsers = await findUsersWithMiningSessionsInRange(
       client,
@@ -108,19 +125,19 @@ async function getReferralStatsService(
 
     return {
       allInvitedUsers: invitedUsers.map((u) => u.userId),
-      allMininngUsers: miningUsers.map((u) => u.userId)
-    };
-  } else {
-    return {
-      allInvitedUsers: invitedUsers.map((u) => u.userId),
-      allMininngUsers: []
+      allMiningUsers: miningUsers.map((u) => u.userId),
     };
   }
+
+  return {
+    allInvitedUsers: invitedUsers.map((u) => u.userId),
+    allMiningUsers: [],
+  };
 }
 
-// ---------------------------------------------------------
-// Layer 1 – Fetch all invited users (paginated)
-// ---------------------------------------------------------
+// -----------------------------------------------------------------------------
+// Data Layer — Fetch All Invited Users (Paginated)
+// -----------------------------------------------------------------------------
 
 async function fetchAllInvitedUsers(
   client: Client<Schema>,
@@ -136,7 +153,7 @@ async function fetchAllInvitedUsers(
       {
         limit: pageSize,
         selectionSet: ["userId"],
-        nextToken
+        nextToken,
       }
     );
 
@@ -154,9 +171,9 @@ async function fetchAllInvitedUsers(
   return results;
 }
 
-// ---------------------------------------------------------
-// Layer 2 – Determine who has mining sessions in range
-// ---------------------------------------------------------
+// -----------------------------------------------------------------------------
+// Data Layer — Determine Active Mining Users in Range
+// -----------------------------------------------------------------------------
 
 async function findUsersWithMiningSessionsInRange(
   client: Client<Schema>,
@@ -166,7 +183,6 @@ async function findUsersWithMiningSessionsInRange(
 ): Promise<UserMinimal[]> {
   if (users.length === 0) return [];
 
-  // Concurrency control: procesăm în batch-uri (ex: 20 users / batch)
   const BATCH_SIZE = 20;
   const miningUsers: UserMinimal[] = [];
 
@@ -177,9 +193,7 @@ async function findUsersWithMiningSessionsInRange(
       batch.map(async (user) => {
         const latestSession = await fetchLatestMiningSessionForUser(client, user.userId);
 
-        if (!latestSession?.startDate) {
-          return null;
-        }
+        if (!latestSession?.startDate) return null;
 
         const minedInRange = DateUtils.isDateBetween(
           latestSession.startDate,
@@ -199,9 +213,9 @@ async function findUsersWithMiningSessionsInRange(
   return miningUsers;
 }
 
-// ---------------------------------------------------------
-// Layer 3 – Fetch latest mining session for a single user
-// ---------------------------------------------------------
+// -----------------------------------------------------------------------------
+// Data Layer — Fetch Latest Session for a User
+// -----------------------------------------------------------------------------
 
 async function fetchLatestMiningSessionForUser(
   client: Client<Schema>,
@@ -212,18 +226,15 @@ async function fetchLatestMiningSessionForUser(
     {
       selectionSet: ["miningSessionId", "startDate"],
       sortDirection: "DESC",
-      limit: 1
+      limit: 1,
     }
   );
 
   const session = response.data?.[0];
-
-  if (!session) {
-    return null;
-  }
+  if (!session) return null;
 
   return {
     miningSessionId: session.miningSessionId,
-    startDate: session.startDate ?? null
+    startDate: session.startDate ?? null,
   };
 }

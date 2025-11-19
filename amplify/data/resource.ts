@@ -30,7 +30,7 @@ const schema = a.schema({
 
   ReferralStatsResponse: a.customType({
     allInvitedUsers: a.string().array().required(),
-    allMininngUsers: a.string().array().required(),
+    allMiningUsers: a.string().array().required(),
   }),
 
   SocialAccount: a.customType({
@@ -80,7 +80,7 @@ const schema = a.schema({
       medias: a.hasMany("Media", "ownerId"),
 
       entityRequests: a
-        .hasMany("EntityRquest", "ownerId")
+        .hasMany("EntityRequest", "ownerId")
         .authorization((allow) => [
           allow.ownerDefinedIn("owner").to(["read"]),
         ]),
@@ -117,7 +117,7 @@ const schema = a.schema({
     .identifier(["userId"])
     .secondaryIndexes((index) => [
       index("referredByUserCode").queryField("listUsersReferredByCode"),
-      index("referralCode").queryField("getUserByreferralCode"),
+      index("referralCode").queryField("getUserByReferralCode"),
       index("email").queryField("getUserByEmail"),
       index("sub").queryField("getUserBySub"),
     ])
@@ -138,7 +138,7 @@ const schema = a.schema({
       user: a.belongsTo("User", "userId"),
       endDate: a.datetime(),
       status: a.enum(["PROGRESS", "PROCESSING", "PROCESSED"]),
-      allInvitedUser: a.string().array(),
+      allInvitedUsers: a.string().array(),
       allInvitedMinedUsers: a.string().array(),
     })
     .identifier(["miningSessionId"])
@@ -190,13 +190,13 @@ const schema = a.schema({
     ]),
 
   /**
-   * EntityRquest:
+   * EntityRequest:
    * - Created by users (status = REVIEW by default).
    * - Only admins (group "admin") can update status (REVIEW -> DONE/REJECTED).
    * - process-entity-request Lambda reacts to REVIEW -> DONE transitions
    *   and creates Entity records.
    */
-  EntityRquest: a
+  EntityRequest: a
     .model({
       entityReqId: a.id().required(),
       type: a.ref("EntityTypes").required(),
@@ -281,7 +281,7 @@ const schema = a.schema({
   AppData: a
     .model({
       id: a.string().required(),
-      registeredUsersCount: a.integer().default("0"),
+      registeredUsersCount: a.integer().default(0),
     })
     .identifier(["id"])
     .authorization((allow) => [allow.group("admin")]),
@@ -320,4 +320,5 @@ export const data = defineData({
   authorizationModes: {
     defaultAuthorizationMode: "identityPool",
   },
+
 });

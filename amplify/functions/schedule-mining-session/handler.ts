@@ -94,7 +94,16 @@ async function updateMiningSessionToProgress(input: {
  * as startDate + EVENT_RATE (in minutes).
  */
 function computeEndDate(startDateISO: string): Date {
-  const eventRateMinutes = Number(evaluate(env.EVENT_RATE));
+  let eventRateMinutes: number;
+  
+  try {
+    eventRateMinutes = Number(evaluate(env.EVENT_RATE));
+  } catch (error) {
+    throw new Error(
+      `${LOG_PREFIX}: Failed to evaluate EVENT_RATE expression: ${env.EVENT_RATE}`
+    );
+  }
+  
   if (Number.isNaN(eventRateMinutes)) {
     throw new Error(
       `${LOG_PREFIX}: EVENT_RATE is not a valid number/expression: ${env.EVENT_RATE}`
@@ -170,12 +179,14 @@ export const handler: DynamoDBStreamHandler = async (event) => {
     recordCount: event.Records.length,
   });
 
+  const batchItemFailures: { itemIdentifier: string }[] = [];
+
   try {
     assertEnv();
   } catch (envError) {
     console.error(`${LOG_PREFIX}: configuration error`, envError);
     return {
-      batchItemFailures: [],
+      batchItemFailures: event.Records.map(record => ({ itemIdentifier: record.dynamodb?.SequenceNumber || "unknown" })),
     };
   }
 
@@ -227,12 +238,15 @@ export const handler: DynamoDBStreamHandler = async (event) => {
         eventID: record.eventID,
         error,
       });
+      batchItemFailures.push({
+        itemIdentifier: record.dynamodb?.SequenceNumber || "unknown"
+      });
     }
   }
 
-  console.log(`${LOG_PREFIX}: successfully processed ${event.Records.length} records.`);
+  console.log(`${LOG_PREFIX}: processed ${event.Records.length} records, ${batchItemFailures.length} failures.`);
 
   return {
-    batchItemFailures: [],
+    batchItemFailures,
   };
 };
