@@ -7,8 +7,8 @@ export const customMessage = defineFunction({
   resourceGroupName: "auth",
   environment: {
     // change these without code changes
-    LOGO_URL: 'https://d16rgqhs8425lw.cloudfront.net/logo-email.png',
+    LOGO_URL: 'https://images.prismic.io/vieew/aPJHp55xUNkB2GKn_logo-vieew-1-sec.png',
     BRAND: 'VIEEW',
-    PRIMARY_URL: 'https://staging.vieew.io',
+    PRIMARY_URL: 'https://vieew.io',
   },
 });

@@ -36,7 +36,12 @@ const APP_DATA_ID = "main";
  * - Ignores MODIFY or REMOVE events.
  */
 export const handler: DynamoDBStreamHandler = async (event) => {
-  const records = event.Records ?? [];
+  if (!event?.Records) {
+    console.error(`${LOG_PREFIX}: invalid event structure`);
+    throw new Error("Invalid DynamoDB stream event");
+  }
+  
+  const records = event.Records;
 
   console.log(`${LOG_PREFIX}: received stream batch`, {
     totalRecords: records.length,
@@ -74,17 +79,23 @@ export const handler: DynamoDBStreamHandler = async (event) => {
       );
     } catch (err: any) {
       if (err.name === "ConditionalCheckFailedException") {
-        await ddb.send(
-          new PutItemCommand({
-            TableName: APPDATA_TABLE_NAME,
-            Item: {
-              id: { S: APP_DATA_ID },
-              registeredUsersCount: { N: "1" },
-            },
-            ConditionExpression: "attribute_not_exists(id)",
-          })
-        );
+        try {
+          await ddb.send(
+            new PutItemCommand({
+              TableName: APPDATA_TABLE_NAME,
+              Item: {
+                id: { S: APP_DATA_ID },
+                registeredUsersCount: { N: "1" },
+              },
+              ConditionExpression: "attribute_not_exists(id)",
+            })
+          );
+        } catch (putErr: any) {
+          console.error(`${LOG_PREFIX}: failed to create AppData record`, { error: putErr });
+          throw putErr;
+        }
       } else {
+        console.error(`${LOG_PREFIX}: failed to update user count`, { error: err });
         throw err;
       }
     }

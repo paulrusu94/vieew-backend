@@ -25,7 +25,7 @@ export const auth = defineAuth({
       facebook: {
         clientId: secret('FACEBOOK_CLIENT_ID'),
         clientSecret: secret('FACEBOOK_CLIENT_SECRET'),
-        scopes: ['email','public_profile'],
+        scopes: ['email', 'public_profile'],
         attributeMapping: {
           email: 'email'
         }

@@ -16,7 +16,7 @@ import { v4 as uuid } from "uuid";
 
 const LOG_PREFIX = "process-entity-request/create-entity-from-request";
 
-type EntityRequestType = Schema["EntityRquest"]["type"]; // note schema name: EntityRquest
+type EntityRequestType = Schema["EntityRequest"]["type"]; // note schema name: EntityRequest
 
 let amplifyConfigured = false;
 let dataClient: Client<Schema> | null = null;
@@ -31,13 +31,21 @@ let dataClient: Client<Schema> | null = null;
  */
 async function getDataClient(): Promise<Client<Schema>> {
   if (!amplifyConfigured) {
-    const { resourceConfig, libraryOptions } = await getAmplifyDataClientConfig(env);
-    Amplify.configure(resourceConfig, libraryOptions);
-    amplifyConfigured = true;
+    try {
+      const { resourceConfig, libraryOptions } = await getAmplifyDataClientConfig(env);
+      Amplify.configure(resourceConfig, libraryOptions);
+      amplifyConfigured = true;
+    } catch (error) {
+      throw new Error(`Failed to configure Amplify: ${error instanceof Error ? error.message : String(error)}`);
+    }
   }
 
   if (!dataClient) {
-    dataClient = generateClient<Schema>({ authMode: "iam" });
+    try {
+      dataClient = generateClient<Schema>({ authMode: "iam" });
+    } catch (error) {
+      throw new Error(`Failed to generate data client: ${error instanceof Error ? error.message : String(error)}`);
+    }
   }
 
   return dataClient;

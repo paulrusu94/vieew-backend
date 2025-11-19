@@ -4,5 +4,5 @@ export const processMiningSession = defineFunction({
   name: 'process-mining-session',
   entry: './handler.ts',
   resourceGroupName: 'data',
-  timeoutSeconds: 60
+  timeoutSeconds: 300,
 });

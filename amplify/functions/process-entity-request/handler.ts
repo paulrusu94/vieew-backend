@@ -12,7 +12,7 @@ import { createEntityFromRequest } from "./utils/create-entity-from-request";
 // Types & Constants
 // -----------------------------------------------------------------------------
 
-type EntityRequestType = Schema["EntityRquest"]["type"]; // schema model name
+type EntityRequestType = Schema["EntityRequest"]["type"]; // schema model name
 
 const LOG_PREFIX = "process-entity-request";
 
@@ -36,6 +36,7 @@ const LOG_PREFIX = "process-entity-request";
  */
 export const handler: DynamoDBStreamHandler = async (event) => {
   const records = event.Records ?? [];
+  const batchItemFailures: { itemIdentifier: string }[] = [];
 
   console.log(`${LOG_PREFIX}: received DynamoDB stream event`, {
     recordCount: records.length,
@@ -95,16 +96,20 @@ export const handler: DynamoDBStreamHandler = async (event) => {
     } catch (error) {
       console.error(`${LOG_PREFIX}: error processing MODIFY record`, {
         eventID: record.eventID,
-        error,
+        error: error instanceof Error ? error.message : String(error),
       });
       // If you want per-record retries via batchItemFailures, you can push the
       // relevant identifiers here. For now, we log and proceed.
+      batchItemFailures.push({
+        itemIdentifier: record.eventID!
+      });
     }
   }
 
+  // amazonq-ignore-next-line
   console.log(`${LOG_PREFIX}: successfully processed ${records.length} records.`);
 
   return {
-    batchItemFailures: [],
+    batchItemFailures,
   };
 };
