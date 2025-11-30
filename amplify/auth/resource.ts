@@ -87,7 +87,11 @@ export const auth = defineAuth({
       ],
     },
   },
-
+senders: {
+  email: {
+    fromEmail: "no-reply@vieew.io",
+  },
+  },
   // -----------------------------------------------------------------
   // Cognito user attributes
   // - preferredUsername is where we expose provider "display name"
